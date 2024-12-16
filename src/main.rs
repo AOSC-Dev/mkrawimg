@@ -10,6 +10,7 @@ mod registry;
 mod tests;
 mod utils;
 
+use core::time;
 use std::path::{Path, PathBuf};
 
 #[cfg(not(debug_assertions))]
@@ -256,8 +257,11 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			}
 			let mut count: usize = 0;
 			let len = queue.len();
+			info!("Begin to generate images ...");
+			std::thread::sleep(time::Duration::from_secs(2));
 			info!("Executing the queue ...");
 			for j in queue {
+				info!("{} images pending generating", len - count);
 				count += 1;
 				j.execute(count, len)?;
 			}

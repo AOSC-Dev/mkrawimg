@@ -5,7 +5,7 @@ use std::{
 	thread,
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::ValueEnum;
 use gptman::{GPTPartitionEntry, GPT};
 use log::{debug, info};
@@ -21,7 +21,10 @@ use crate::{
 	device::{DeviceSpec, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
-	utils::{create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot, sync_filesystem},
+	utils::{
+		create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
+		sync_filesystem,
+	},
 };
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
@@ -102,7 +105,7 @@ impl ImageContext<'_> {
 		let num_partitions = self.device.num_partitions;
 		for partition in &self.device.partitions {
 			if partition.num == 0 {
-				return Err(anyhow!("Partition number must start from 1."));
+				bail!("Partition number must start from 1.");
 			}
 			let rand_part_uuid = Uuid::new_v4();
 			let unique_partition_guid = rand_part_uuid.to_bytes_le();
@@ -116,10 +119,10 @@ impl ImageContext<'_> {
 					partition.size
 				} else {
 					if partition.num != num_partitions {
-						return Err(anyhow!("Max sized partition must stay at the end of the table."));
+						bail!("Max sized partition must stay at the end of the table.");
 					}
 					if last_free.1 < 1048576 / sector_size {
-						return Err(anyhow!("Not enough free space to create a partition"));
+						bail!("Not enough free space to create a partition");
 					}
 					last_free.1 - 1
 				};
@@ -187,7 +190,7 @@ impl ImageContext<'_> {
 		));
 		for partition in &self.device.partitions {
 			if partition.num == 0 {
-				return Err(anyhow!("Partition number must start from 1."));
+				bail!("Partition number must start from 1.");
 			}
 			if partition.num > 4 {
 				return Err(anyhow!(
@@ -207,12 +210,12 @@ impl ImageContext<'_> {
 			} else {
 				// Make sure it is the last partition.
 				if partition.num != self.device.num_partitions {
-					return Err(anyhow!("Max sized partition must stay at the end of the table."));
+					bail!("Max sized partition must stay at the end of the table.");
 				}
 				last_free.1 - 1
 			};
 			if sectors < 1048576 / sector_size {
-				return Err(anyhow!("Not enough free space to create a partition"));
+				bail!("Not enough free space to create a partition");
 			}
 			let starting_lba = if let Some(start) = partition.start_sector {
 				TryInto::<u32>::try_into(start)
@@ -262,10 +265,13 @@ impl ImageContext<'_> {
 			PartitionMapType::GPT => self.partition_gpt(disk_path),
 			PartitionMapType::MBR => self.partition_mbr(disk_path),
 			// _ => {
-			// 	return Err(anyhow!("Unsupported partition map"));
+			// 	bail!("Unsupported partition map");
 			// }
 		}?;
-		self.info(format!("Informing the kernel to reload the partition table on {} ...", disk_path.display()));
+		self.info(format!(
+			"Informing the kernel to reload the partition table on {} ...",
+			disk_path.display()
+		));
 		// FIXME: BLKRRPART ioctl call EINVALs on loop devices.
 		// For now we call partprobe to tell the kernel to reread the partition table.
 		// gptman::linux::reread_partition_table(&mut File::options().read(true).write(true).open(disk_path)?)?;
@@ -322,8 +328,13 @@ impl ImageContext<'_> {
 			let src_dir = Path::new(&src_dir);
 			let dst_dir = mntdir_base.join(format!("p{}", partition.num));
 			create_dir_all(&dst_dir)?;
-			debug!("Mounting {} to {}", src_dir.display(), dst_dir.as_path().display());
-			let mount = Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
+			debug!(
+				"Mounting {} to {}",
+				src_dir.display(),
+				dst_dir.as_path().display()
+			);
+			let mount =
+				Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
 			mount.mount(src_dir, &dst_dir)?;
 			stack.push(dst_dir.to_string_lossy().to_string());
 		}
@@ -346,12 +357,14 @@ impl ImageContext<'_> {
 				continue;
 			}
 			if let Some(mp) = &partition.mountpoint {
-				let src_dir =format!("{}p{}", loop_dev.to_string_lossy(), partition.num);
+				let src_dir =
+					format!("{}p{}", loop_dev.to_string_lossy(), partition.num);
 				let src_dir = Path::new(&src_dir);
 				// Joining paths with a leading slash replaces the whole path
 				let dst_dir = rootdir.join(mp.trim_start_matches('/'));
 				create_dir_all(&dst_dir)?;
-				let mount = Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
+				let mount = Mount::builder()
+					.fstype(partition.filesystem.get_os_fstype()?);
 				mount.mount(src_dir, &dst_dir)?;
 				stack.push(dst_dir.to_string_lossy().to_string());
 			}
@@ -419,7 +432,7 @@ impl ImageContext<'_> {
 			}
 		}
 		if root_dev_num.is_none() {
-			return Err(anyhow!("Unable to find a root filesystem"));
+			bail!("Unable to find a root filesystem");
 		}
 		let root_dev_num = root_dev_num.unwrap();
 		self.info(format!(
@@ -471,24 +484,24 @@ impl ImageContext<'_> {
 
 		self.info(format!("Formating partitions ..."));
 		self.format_partitions(&loop_dev_path)?;
-		let rootpart_path = format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		let rootpart_path =
+			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
 		let rootfs_path = mountdir_base.join(format!("p{}", root_dev_num));
 
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
 
-		thread::sleep(time::Duration::from_secs(1));
 		self.info(format!("Installing system distribution ..."));
 		draw_progressbar("Installing base distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_path)?;
 		self.mount_partitions_in_root(&loop_dev_path, &rootfs_path, &mut mountpoint_stack)?;
 
-		thread::sleep(time::Duration::from_secs(1));
 		self.info(format!("Installing BSP packages ..."));
 		draw_progressbar("Installing packages");
-		thread::sleep(time::Duration::from_secs(1));
 		let device_spec_path = self.device.file_path.to_owned();
-		let postinst_script_dir = device_spec_path.parent().context("Unable to find the directory containing the device spec")?;
+		let postinst_script_dir = device_spec_path
+			.parent()
+			.context("Unable to find the directory containing the device spec")?;
 		let mut postinst_script_path = (&postinst_script_dir).join("postinst.bash");
 		if !postinst_script_path.is_file() {
 			postinst_script_path = (&postinst_script_dir).join("postinst.sh");
@@ -499,7 +512,6 @@ impl ImageContext<'_> {
 		if postinst_script_path.is_file() {
 			self.info(format!("Running post installation step ..."));
 			draw_progressbar("Post installation step");
-			thread::sleep(time::Duration::from_secs(1));
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
@@ -507,12 +519,12 @@ impl ImageContext<'_> {
 		draw_progressbar("Finishing up");
 		self.info("Unmounting filesystems ...");
 		ImageContext::<'_>::umount_stack(&mut mountpoint_stack)?;
-		thread::sleep(time::Duration::from_secs(1));
 		self.info("Detaching the loop device ...");
 		loop_dev.detach()?;
 		// fs::remove_file(rawimg_path)?;
-		thread::sleep(time::Duration::from_secs(10));
 		restore_term();
+
+		info!("Done! image finished.");
 		Ok(())
 	}
 }

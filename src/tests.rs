@@ -5,7 +5,7 @@ use crate::{
 	partition::PartitionType,
 	utils::{get_sparse_file, geteuid},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{bail, Context, Result};
 use log::info;
 use loopdev;
 use toml;
@@ -17,7 +17,7 @@ fn test_loopdev() -> Result<()> {
 		.filter_level(log::LevelFilter::Info)
 		.init();
 	if unsafe { geteuid() } != 0 {
-		return Err(anyhow!("Not being run as root user, aborting."));
+		bail!("Not being run as root user, aborting.");
 	}
 	let back_file = get_sparse_file("/tmp/file", 512 * 1024 * 1024)?;
 	let loopctl = loopdev::LoopControl::open()?;

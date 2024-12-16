@@ -120,7 +120,7 @@ impl DeviceRegistry {
 			);
 			PathBuf::from(path)
 		} else {
-			return Err(anyhow!("Custom path should be either a directory that contains a device.toml or the device.toml itself."));
+			bail!("Custom path should be either a directory that contains a device.toml or the device.toml itself.");
 		};
 		let device: DeviceSpec = toml::from_str(&fs::read_to_string(&devicetoml)?)?;
 		let name = &device.name;

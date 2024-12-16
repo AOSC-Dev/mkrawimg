@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Ok, Result};
+use anyhow::{anyhow, bail, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
@@ -30,15 +30,15 @@ impl FilesystemType {
 			match self {
 				Self::Fat16 | Self::Fat32 => {
 					if !l.is_ascii() {
-						return Err(anyhow!("FAT volume label can only contain ASCII characters."));
+						bail!("FAT volume label can only contain ASCII characters.");
 					}
 					if l.len() > 11 {
-						return Err(anyhow!("FAT Volume labels can not be longer than 11 characters."));
+						bail!("FAT Volume labels can not be longer than 11 characters.");
 					}
 				}
 				_ => {
 					if l.as_bytes().len() > 63 {
-						return Err(anyhow!("Filesystem labels are limited to up to 63 bytes."));
+						bail!("Filesystem labels are limited to up to 63 bytes.");
 					}
 				}
 			};
@@ -64,7 +64,7 @@ impl FilesystemType {
 		label: Option<String>,
 	) -> Result<Command> {
 		if self == &Self::Null {
-			return Err(anyhow!("Instructed to not being formatted"));
+			bail!("Instructed to not being formatted");
 		}
 		let path = path.as_ref();
 		self.check(label.to_owned())?;

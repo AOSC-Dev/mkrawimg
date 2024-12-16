@@ -87,12 +87,10 @@ impl PartitionType {
 			Self::Swap => Ok(PARTTYPE_SWAP_BYTE),
 			Self::Basic => Ok(PARTTYPE_BASIC_BYTE),
 			// Disallow extended partitions.
-			Self::Byte { byte: 0x05 } |
-			Self::Byte { byte: 0xc5 } |
-			Self::Byte { byte: 0x85 } |
-			Self::Byte { byte: 0x0f } => {
-				Err(anyhow!("Extended partitions are not allowed."))
-			}
+			Self::Byte { byte: 0x05 }
+			| Self::Byte { byte: 0xc5 }
+			| Self::Byte { byte: 0x85 }
+			| Self::Byte { byte: 0x0f } => Err(anyhow!("Extended partitions are not allowed.")),
 			Self::Byte { byte } => Ok(*byte),
 			Self::Uuid { uuid } => {
 				Err(anyhow!("Can not convert an arbitrary byte to UUID."))

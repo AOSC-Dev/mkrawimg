@@ -1,8 +1,12 @@
 use std::{
-	ffi::{c_int, c_void, CString}, fs::File, io::{Seek, Write}, path::Path, process::{Command, Stdio}
+	ffi::{c_int, c_void, CString},
+	fs::File,
+	io::{Seek, Write},
+	path::Path,
+	process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use libc::{close, open, O_NONBLOCK, O_RDONLY};
 use log::{debug, info};
 use termsize::Size;
@@ -183,7 +187,7 @@ pub fn rsync_sysroot<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
 	let src = src.as_ref();
 	let dst = dst.as_ref();
 	if !src.is_dir() || !dst.is_dir() {
-		return Err(anyhow!("Neither directory exists."));
+		bail!("Neither directory exists.");
 	}
 	info!(
 		"Installing the distribution in {} to {} ...",
@@ -227,26 +231,33 @@ pub fn sync_filesystem(path: &dyn AsRef<Path>) -> Result<()> {
 	let path = CString::new(tgt_path.as_os_str().as_encoded_bytes())?;
 	let path_ptr: *const i8 = path.as_ptr();
 
-	let fd = unsafe {
-		open(
-			path_ptr,
-			O_RDONLY | O_NONBLOCK
-		)
-	};
+	let fd = unsafe { open(path_ptr, O_RDONLY | O_NONBLOCK) };
 	if fd < 0 {
 		let errno = errno::errno();
-		return Err(anyhow!("Failed to open path {}: {}", &tgt_path.display(), errno))
+		return Err(anyhow!(
+			"Failed to open path {}: {}",
+			&tgt_path.display(),
+			errno
+		));
 	}
 	debug!("open(\"{}\") returned fd {}", &tgt_path.display(), fd);
-	let result = unsafe {
-		syncfs(fd)
-	};
+	let result = unsafe { syncfs(fd) };
 	debug!("syncfs({}) returned {}", fd, result);
 	if result != 0 {
-		unsafe { close(fd) };
+		let close = unsafe { close(fd) };
+		if close != 0 {
+			panic!("Failed to close fd {}: {}", fd, errno::errno());
+		}
 		let errno = errno::errno();
-		return Err(anyhow!("Failed to sync filesystem {}: {}", tgt_path.display(), errno));
+		return Err(anyhow!(
+			"Failed to sync filesystem {}: {}",
+			tgt_path.display(),
+			errno
+		));
 	}
-	unsafe { close(fd) };
+	let close = unsafe { close(fd) };
+	if close != 0 {
+		panic!("Failed to close fd {}: {}", fd, errno::errno());
+	}
 	Ok(())
 }
