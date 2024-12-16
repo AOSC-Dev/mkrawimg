@@ -1,14 +1,16 @@
 use core::time;
 use std::{
 	fs::{create_dir_all, File},
+	io::{copy, BufReader, BufWriter, Write},
 	path::{Path, PathBuf},
 	thread,
+	time::{Duration, Instant},
 };
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::ValueEnum;
 use gptman::{GPTPartitionEntry, GPT};
-use log::{debug, info};
+use log::{debug, info, warn};
 use loopdev::LoopControl;
 use mbrman::{MBRPartitionEntry, CHS, MBR};
 use strum::{Display, VariantArray};
@@ -65,6 +67,15 @@ impl ImageContext<'_> {
 			content
 		);
 	}
+	fn warn<S: AsRef<str>>(&self, content: S) -> () {
+		let content = content.as_ref();
+		warn!(
+			"[{} {}] {}",
+			&self.device.id,
+			&self.variant.to_string().to_lowercase(),
+			content
+		);
+	}
 
 	fn partition_gpt(&self, img: &Path) -> Result<()> {
 		// The device must be opened write-only to write partition tables
@@ -114,18 +125,17 @@ impl ImageContext<'_> {
 			let last_free = free_blocks
 				.last()
 				.context("No more free space available for new partitions")?;
-			let size =
-				if partition.size != 0 {
-					partition.size
-				} else {
-					if partition.num != num_partitions {
-						bail!("Max sized partition must stay at the end of the table.");
-					}
-					if last_free.1 < 1048576 / sector_size {
-						bail!("Not enough free space to create a partition");
-					}
-					last_free.1 - 1
-				};
+			let size = if partition.size != 0 {
+				partition.size
+			} else {
+				if partition.num != num_partitions {
+					bail!("Max sized partition must stay at the end of the table.");
+				}
+				if last_free.1 < 1048576 / sector_size {
+					bail!("Not enough free space to create a partition");
+				}
+				last_free.1 - 1
+			};
 
 			let partition_type_guid = partition.part_type.to_uuid()?.to_bytes_le();
 			let starting_lba = if let Some(start) = partition.start_sector {
@@ -398,6 +408,96 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
+	fn compress_image<P: AsRef<Path>>(&self, from: P, to: P) -> Result<()> {
+		let from = from.as_ref();
+		let to = to.as_ref();
+		let from_fd = File::options().read(true).open(&from)?;
+		let to_fd = File::options().write(true).create(true).open(&to)?;
+
+		let num_cpus = TryInto::<u32>::try_into(num_cpus::get())
+			.context("Number of CPU cores exceeds the limit")?
+			.clamp(1, 32);
+
+		let start: Instant;
+		let duration: Duration;
+
+		match &self.compress {
+			Compression::None => {
+				self.info(format!("Not compressing the raw image as instructed, copying the raw image to {} ...", &to.display()));
+			}
+			_ => {
+				if self.compress != &Compression::Gzip {
+					self.info(format!(
+						"Using {} threads for compression",
+						num_cpus
+					));
+				}
+				self.info(format!(
+					"Compressing the raw image to {} using {:?} ...",
+					&to.display(),
+					&self.compress
+				))
+			}
+		}
+		match &self.compress {
+			Compression::Xz => {
+				let mut bufreader = BufReader::with_capacity(1048576, from_fd);
+				let mut xz_filter = xz2::stream::Filters::new();
+				let mut xz_options = xz2::stream::LzmaOptions::new_preset(9)?;
+				xz_options.nice_len(273);
+				xz_filter.lzma2(&xz_options);
+				let encoder = xz2::stream::MtStreamBuilder::new()
+					.filters(xz_filter)
+					.threads(num_cpus)
+					.block_size(1048576)
+					.check(xz2::stream::Check::Crc32)
+					.encoder()?;
+				let mut writer = xz2::write::XzEncoder::new_stream(to_fd, encoder);
+				start = Instant::now();
+				copy(&mut bufreader, &mut writer)?;
+				writer.finish()?.flush()?;
+				duration = start.elapsed();
+			}
+			Compression::Zstd => {
+				// zstd::stream::copy_encode(from_fd, to_fd, 9)?;
+				let mut bufreader = BufReader::with_capacity(1048576, from_fd);
+				let mut writer = zstd::stream::Encoder::new(to_fd, 9)?;
+				writer.multithread(num_cpus)?;
+				start = Instant::now();
+				copy(&mut bufreader, &mut writer)?;
+				writer.finish()?.flush()?;
+				duration = start.elapsed();
+			}
+			Compression::Gzip => {
+				self.warn("Caution! GZip does not support multi-threading. Compression will be very slow.");
+				let bufreader = BufReader::with_capacity(1048576, from_fd);
+				let mut encoder = flate2::bufread::GzEncoder::new(
+					bufreader,
+					flate2::Compression::new(9),
+				);
+				let mut bufwriter = BufWriter::with_capacity(1048576, to_fd);
+				start = Instant::now();
+				copy(&mut encoder, &mut bufwriter)?;
+				duration = start.elapsed();
+			}
+			Compression::None => {
+				// Using std::fs::copy.
+				self.info("No compression specified, copying file directly.");
+				// Close the files first.
+				drop(from_fd);
+				drop(to_fd);
+				std::fs::copy(from, to)?;
+				self.info("Done copying the raw image.");
+				return Ok(());
+			}
+		}
+		self.info(format!(
+			"Compression finished in {:.2} seconds.",
+			duration.as_secs_f64()
+		));
+		Ok(())
+	}
+
 	pub fn execute(self, num: usize, len: usize) -> Result<()> {
 		let draw_progressbar = |content: &str| {
 			// we don't want to screw up the terminal.
@@ -422,6 +522,7 @@ impl ImageContext<'_> {
 			&self.variant.to_string().to_lowercase(),
 			&self.device.vendor
 		));
+		let outfile_path = outdir_base.join(&self.filename);
 		let mountdir_base = workdir_base.join("mnt");
 		let size = self.device.size.get_variant_size(&self.variant) * (1 << 20);
 		let mut mountpoint_stack: Vec<String> = Vec::new();
@@ -522,6 +623,7 @@ impl ImageContext<'_> {
 		self.info("Detaching the loop device ...");
 		loop_dev.detach()?;
 		// fs::remove_file(rawimg_path)?;
+		self.compress_image(&rawimg_path, &outfile_path)?;
 		restore_term();
 
 		info!("Done! image finished.");

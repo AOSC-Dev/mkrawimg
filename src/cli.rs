@@ -11,7 +11,7 @@ pub enum RootFsType {
 	Xfs,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Compression {
 	Xz,
 	Zstd,
