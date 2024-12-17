@@ -78,10 +78,12 @@ pub struct DeviceSpec {
 	/// Size of the image for each variant.
 	pub size: ImageVariantSizes,
 	/// Partitions in the image.
+	// Can be `[[partition]]` to avoid awkwardness.
+	#[serde(alias = "partition")]
 	pub partitions: Vec<PartitionSpec>,
 	/// Actions to apply bootloaders.
 	#[serde(alias = "bootloader")]
-	pub bootloaders: Vec<BootloaderSpec>,
+	pub bootloaders: Option<Vec<BootloaderSpec>>,
 	/// Path to the device.toml.
 	#[serde(skip_deserializing)]
 	pub file_path: PathBuf,

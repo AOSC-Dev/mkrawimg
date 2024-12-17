@@ -90,11 +90,15 @@ impl DeviceRegistry {
 				}
 			}
 		}
+		info!(
+			"Scan complete. Registry contains {} names for {} devices.",
+			&hashmap.len(),
+			&devices.len()
+		);
 		let registry = DeviceRegistry {
 			devices,
 			registry: hashmap,
 		};
-
 		Ok(registry)
 	}
 

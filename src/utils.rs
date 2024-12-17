@@ -46,6 +46,7 @@ pub fn get_sparse_file<P: AsRef<Path>>(path: P, size: u64) -> Result<File> {
 	img_file.write_all(&[0]).context(
 		"Failed to punch hole for sparse file. Does your filesystem support sparse files?",
 	)?;
+	img_file.sync_all()?;
 	Ok(img_file)
 }
 
@@ -111,7 +112,7 @@ BUG_REPORT_URL="https://github.com/AOSC-Dev/aosc-os-abbs/issues""#;
 		fs::create_dir_all(p)?;
 	}
 	let mut fd = File::create(path.join("etc/os-release"))?;
-	fd.write(OS_RELEASE.as_bytes())?;
+	fd.write_all(OS_RELEASE.as_bytes())?;
 	info!("Successfully bootstrapped {} distribution.", variant);
 	Ok(())
 }

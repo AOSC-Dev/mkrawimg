@@ -17,12 +17,10 @@ use crate::{
 		sync_filesystem,
 	},
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
-use gptman::{GPTPartitionEntry, GPT};
 use log::{debug, info, warn};
 use loopdev::LoopControl;
-use mbrman::{MBRPartitionEntry, CHS, MBR};
 use strum::{Display, VariantArray};
 use sys_mount::{unmount, Mount, UnmountFlags};
 use termsize::Size;
@@ -36,7 +34,7 @@ pub enum ImageVariant {
 
 /// A context, or a job that builds an image.
 /// Everything is static (the device specs are immutable after being
-/// assembled into DeviceRegistry).
+/// assembled into [`crate::registry::DeviceRegistry`]).
 #[allow(dead_code)]
 pub struct ImageContext<'a> {
 	pub device: &'a DeviceSpec,
@@ -76,7 +74,7 @@ impl ImageContext<'_> {
 	}
 
 	#[inline]
-	pub fn partition_image<P: AsRef<Path>>(&self, dev: P) -> Result<()> {
+	fn partition_image<P: AsRef<Path>>(&self, dev: P) -> Result<()> {
 		let disk_path = dev.as_ref();
 		match &self.device.partition_map {
 			PartitionMapType::GPT => self.partition_gpt(disk_path),
@@ -96,7 +94,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	pub fn mount_partitions<P: AsRef<Path>>(
+	fn mount_partitions<P: AsRef<Path>>(
 		&self,
 		loop_dev: P,
 		mntdir_base: P,
@@ -129,7 +127,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	pub fn mount_partitions_in_root<P: AsRef<Path>>(
+	fn mount_partitions_in_root<P: AsRef<Path>>(
 		&self,
 		loop_dev: P,
 		rootdir: P,
@@ -161,7 +159,7 @@ impl ImageContext<'_> {
 	}
 
 	#[inline]
-	pub fn umount_stack(stack: &mut Vec<String>) -> Result<()> {
+	fn umount_stack(stack: &mut Vec<String>) -> Result<()> {
 		loop {
 			let cur = stack.pop();
 			if let Some(s) = cur {
@@ -179,7 +177,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	pub fn postinst_step<P: AsRef<Path>>(&self, postinst_path: P, rootdir: P) -> Result<()> {
+	fn postinst_step<P: AsRef<Path>>(&self, postinst_path: P, rootdir: P) -> Result<()> {
 		let postinst_path = postinst_path.as_ref();
 		let rootdir = rootdir.as_ref();
 

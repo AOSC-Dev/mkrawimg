@@ -1,30 +1,11 @@
-use core::time;
-use std::{
-	fs::{create_dir_all, File},
-	io::{copy, BufReader, BufWriter, Write},
-	path::{Path, PathBuf},
-	thread,
-	time::{Duration, Instant},
-};
+use std::{fs::File, path::Path};
 
-use crate::{
-	cli::Compression,
-	context::ImageContext,
-	device::{DeviceSpec, PartitionMapType},
-	filesystem::FilesystemType,
-	utils::{
-		create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		sync_filesystem,
-	},
-};
+use crate::{context::ImageContext, device::PartitionMapType, filesystem::FilesystemType};
 use anyhow::{anyhow, bail, Context, Result};
-use clap::ValueEnum;
 use gptman::{GPTPartitionEntry, GPT};
-use log::{debug, info, warn};
-use loopdev::LoopControl;
+use log::debug;
 use mbrman::{MBRPartitionEntry, CHS, MBR};
 use serde::{Deserialize, Serialize};
-use termsize::Size;
 use uuid::{uuid, Uuid};
 
 pub const PARTTYPE_EFI_UUID: Uuid = uuid!("C12A7328-F81F-11D2-BA4B-00A0C93EC93B");

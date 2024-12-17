@@ -38,7 +38,7 @@ use crate::context::ImageContext;
 /// partition = 2
 /// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum BootloaderSpec {
 	/// Run the script within the same directory as `device.toml`
 	Script { name: String },
