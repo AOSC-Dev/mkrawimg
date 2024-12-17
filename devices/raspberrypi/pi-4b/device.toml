@@ -88,7 +88,7 @@ no = 1
 #   This is the hard limit, since MBR can contain up to 4 master partitions.
 #   This tool can not handle extended partition or logical partitions!
 #   So please use GPT if your device or bootloader supports it.
-type = { type = "esp" }
+type = "esp"
 # Usage of the filesystem. The following values are accepted:
 # - boot: This partition is used as a boot partition, which might
 #   contain the bootloader, kernel image and initramfs image.
@@ -115,7 +115,7 @@ fs_label = "Boot"
 # and booted.
 [[partitions]]
 no = 2
-type = { type = "linux" }
+type = "linux"
 size = 0
 mountpoint = "/"
 filesystem = "ext4"

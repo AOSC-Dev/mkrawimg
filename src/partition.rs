@@ -20,14 +20,14 @@ pub const PARTTYPE_BASIC_BYTE: u8 = 0x07;
 
 #[derive(Deserialize, Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-
+#[allow(clippy::upper_case_acronyms)]
 pub enum PartitionType {
 	// Common types
 	/// EFI System Partition
 	/// - MBR: `0xef`
 	/// - GPT: `C12A7328-F81F-11D2-BA4B-00A0C93EC93B`
 	#[serde(alias = "esp")]
-	Efi,
+	EFI,
 	/// Linux filesystem data
 	/// - MBR: `0x83`
 	/// - GPT: `0FC63DAF-8483-4772-8E79-3D69D8477DE4`
@@ -62,7 +62,7 @@ pub enum PartitionType {
 pub struct PartitionSpec {
 	#[serde(alias = "no")]
 	pub num: u32,
-	#[serde(rename = "type")]
+	#[serde(rename = "type", flatten)]
 	pub part_type: PartitionType,
 	pub start_sector: Option<u64>,
 	pub size: u64,
@@ -86,7 +86,7 @@ pub enum PartitionUsage {
 impl PartitionType {
 	pub fn to_byte(&self) -> Result<u8> {
 		match self {
-			Self::Efi => Ok(PARTTYPE_EFI_BYTE),
+			Self::EFI => Ok(PARTTYPE_EFI_BYTE),
 			Self::Linux => Ok(PARTTYPE_LINUX_BYTE),
 			Self::Swap => Ok(PARTTYPE_SWAP_BYTE),
 			Self::Basic => Ok(PARTTYPE_BASIC_BYTE),
@@ -96,7 +96,7 @@ impl PartitionType {
 			| Self::Byte { byte: 0x85 }
 			| Self::Byte { byte: 0x0f } => Err(anyhow!("Extended partitions are not allowed.")),
 			Self::Byte { byte } => Ok(*byte),
-			Self::Uuid { uuid } => {
+			Self::Uuid { .. } => {
 				Err(anyhow!("Can not convert an arbitrary byte to UUID."))
 			}
 			Self::Nested { .. } => {
@@ -106,7 +106,7 @@ impl PartitionType {
 	}
 	pub fn to_uuid(&self) -> Result<Uuid> {
 		match self {
-			Self::Efi => Ok(PARTTYPE_EFI_UUID),
+			Self::EFI => Ok(PARTTYPE_EFI_UUID),
 			Self::Linux => Ok(PARTTYPE_LINUX_UUID),
 			Self::Swap => Ok(PARTTYPE_SWAP_UUID),
 			Self::Basic => Ok(PARTTYPE_BASIC_UUID),
@@ -332,8 +332,7 @@ mod tests {
 	}
 	#[test]
 	fn test_part_type() -> Result<()> {
-		let x = get!(TEST_EFI);
-		assert_eq!(get!(TEST_EFI), Ok(PartitionType::Efi));
+		assert_eq!(get!(TEST_EFI), Ok(PartitionType::EFI));
 		assert_eq!(get!(TEST_LINUX), Ok(PartitionType::Linux));
 		assert_eq!(get!(TEST_SWAP), Ok(PartitionType::Swap));
 		assert_eq!(get!(TEST_BASIC), Ok(PartitionType::Basic));

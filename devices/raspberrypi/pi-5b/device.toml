@@ -88,7 +88,7 @@ no = 1
 #   This is the hard limit, since MBR can contain up to 4 master partitions.
 #   This tool can not handle extended partition or logical partitions!
 #   So please use GPT if your device or bootloader supports it.
-type = { type = "esp" }
+type = "esp"
 # For arbitary UUID values (for GPT), please use
 # type = { type = "uuid", uuid = "0FC63DAF-8483-4772-8E79-3D69D8477DE4"}
 # For arbitary byte values (for MBR), please use
@@ -120,7 +120,7 @@ fs_label = "Boot"
 # The second partition.
 [[partitions]]
 no = 2
-type = { type = "linux" }
+type = "linux"
 size = 0
 mountpoint = "/"
 filesystem = "ext4"
