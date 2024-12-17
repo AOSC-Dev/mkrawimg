@@ -100,7 +100,6 @@ impl FilesystemType {
 }
 
 impl ImageContext<'_> {
-	#[inline]
 	pub fn format_partitions(&self, loopdev: &dyn AsRef<Path>) -> Result<()> {
 		let loopdev = loopdev.as_ref();
 		for partition in &self.device.partitions {

@@ -1,6 +1,9 @@
 // #![allow(warnings)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
+// Why do you guys hate tabs?
+// Look, I use tabs for indentation in my code.
+// I have some sample code from the Linux kernel in my docstrings.
+// Clippy warns me about the tabs, this is denial!
+#![allow(clippy::tabs_in_doc_comments)]
 mod bootloader;
 mod cli;
 mod context;
@@ -71,7 +74,7 @@ fn main() -> Result<()> {
 		error!("Error encountered!\n{}", e);
 		let mut ident = 0;
 		e.chain().skip(1).for_each(|cause| {
-			let ident_str = String::from("\t".repeat(ident));
+			let ident_str = "\t".repeat(ident);
 			ident += 1;
 			str_buf += &format!("{0}- Caused by:\n{0}  {1}", ident_str, cause);
 		});
@@ -237,7 +240,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			for variant in variants {
 				let variant_str = variant.to_string().to_lowercase();
 				for device in devices.as_slice() {
-					let arch = device.arch.clone();
+					let arch = device.arch;
 					let bootstrap_path =
 						Path::new(&cmdline.workdir).join(format!(
 							"bootstrap/{}-{}",

@@ -15,11 +15,14 @@ use crate::{context::ImageVariant, device::DeviceArch};
 
 #[link(name = "c")]
 extern "C" {
+	#[allow(dead_code)]
 	pub fn geteuid() -> c_int;
+	#[allow(dead_code)]
 	pub fn sync() -> c_void;
 	pub fn syncfs(fd: c_int) -> c_int;
 }
 
+#[cfg(not(debug_assertions))]
 const AB_DIR: &str = "/usr/share/aoscbootstrap";
 const DEFAULT_GROUPS: &[&str] = &["audio", "video", "cdrom", "plugdev", "tty", "wheel"];
 const LOCALCONF_PATH: &str = "etc/locale.conf";
@@ -72,6 +75,7 @@ pub fn refresh_partition_table<P: AsRef<Path>>(dev: P) -> Result<()> {
 
 #[cfg(debug_assertions)]
 #[allow(dead_code)]
+#[allow(unused_variables)]
 pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	variant: &ImageVariant,
 	path: P,
@@ -80,7 +84,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 ) -> Result<()> {
 	use std::fs;
 
-	const DIRS: &'static [&'static str] = &[
+	const DIRS: &[&str] = &[
 		"bin",
 		"etc",
 		"lib",
@@ -90,7 +94,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 		"usr/share",
 		"var",
 	];
-	const OS_RELEASE: &'static str = r#"PRETTY_NAME="AOSC OS (12.0.0)"
+	const OS_RELEASE: &str = r#"PRETTY_NAME="AOSC OS (12.0.0)"
 NAME="AOSC OS"
 VERSION_ID="12.0.0"
 VERSION="12.0.0 (localhost)"
@@ -222,6 +226,7 @@ pub fn restore_term() {
 	);
 }
 
+#[allow(dead_code)]
 pub fn sync_all() -> Result<()> {
 	let _ = unsafe { sync() };
 	Ok(())

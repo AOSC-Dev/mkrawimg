@@ -1,16 +1,26 @@
 use std::{
 	ffi::OsStr,
-	fs,
+	fs::{self, File},
 	path::{Path, PathBuf},
 };
 
-use crate::{bootloader::BootloaderSpec, context::ImageVariant, partition::PartitionSpec};
+use crate::{
+	bootloader::BootloaderSpec,
+	context::{ImageContext, ImageVariant},
+	partition::{PartitionSpec, PartitionUsage},
+};
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
+use gptman::{GPTPartitionEntry, GPT};
+use log::debug;
+use mbrman::{MBRPartitionEntry, CHS, MBR};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
+// It is strange to see MBR as Mbr, GPT as Gpt.
+#[allow(clippy::upper_case_acronyms)]
 pub enum PartitionMapType {
 	MBR,
 	GPT,
@@ -40,6 +50,7 @@ pub enum DeviceArch {
 }
 /// Represents a device specification file device.toml.
 #[derive(Clone, Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct DeviceSpec {
 	/// Unique ID of the device. Can be any ASCII characters except
 	/// spaces, glob characters and /.

@@ -1,10 +1,5 @@
-use std::{fs::File, path::Path};
-
-use crate::{context::ImageContext, device::PartitionMapType, filesystem::FilesystemType};
-use anyhow::{anyhow, bail, Context, Result};
-use gptman::{GPTPartitionEntry, GPT};
-use log::debug;
-use mbrman::{MBRPartitionEntry, CHS, MBR};
+use crate::{device::PartitionMapType, filesystem::FilesystemType};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use uuid::{uuid, Uuid};
 

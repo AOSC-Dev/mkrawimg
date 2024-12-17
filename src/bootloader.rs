@@ -36,6 +36,11 @@ use crate::context::ImageContext;
 /// # symbolic links are allowed
 /// path = "/usr/lib/u-boot/rk64/rk3588-orange-pi-5-max.itb"
 /// partition = 2
+///
+/// [[bootloader]]
+/// type = flash_offset
+/// path = "/path/to/bootlodaer/image"
+/// offset = 0x400
 /// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
@@ -50,6 +55,10 @@ pub enum BootloaderSpec {
 
 impl ImageContext<'_> {
 	pub fn apply_bootloaders<P: AsRef<Path>>(&self, rootfs: P, loopdev: P) -> Result<()> {
+		if self.device.bootloaders.is_none() {
+			return Ok(());
+		}
+		self.info("Applying bootloaders ...");
 		Ok(())
 	}
 }

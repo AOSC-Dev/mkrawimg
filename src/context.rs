@@ -54,7 +54,7 @@ pub struct ImageContext<'a> {
 pub type ImageContextQueue<'a> = Vec<ImageContext<'a>>;
 
 impl ImageContext<'_> {
-	pub(crate) fn info<S: AsRef<str>>(&self, content: S) -> () {
+	pub(crate) fn info<S: AsRef<str>>(&self, content: S) {
 		let content = content.as_ref();
 		info!(
 			"[{} {}] {}",
@@ -63,7 +63,7 @@ impl ImageContext<'_> {
 			content
 		);
 	}
-	pub(crate) fn warn<S: AsRef<str>>(&self, content: S) -> () {
+	pub(crate) fn warn<S: AsRef<str>>(&self, content: S) {
 		let content = content.as_ref();
 		warn!(
 			"[{} {}] {}",
@@ -180,15 +180,20 @@ impl ImageContext<'_> {
 	fn postinst_step<P: AsRef<Path>>(&self, postinst_path: P, rootdir: P) -> Result<()> {
 		let postinst_path = postinst_path.as_ref();
 		let rootdir = rootdir.as_ref();
-
+		add_user(rootdir, "aosc", "anthon", Some("Default User"), None, None)?;
+		set_locale(rootdir, "en_US.UTF-8")?;
 		Ok(())
 	}
 
 	fn compress_image<P: AsRef<Path>>(&self, from: P, to: P) -> Result<()> {
 		let from = from.as_ref();
 		let to = to.as_ref();
-		let from_fd = File::options().read(true).open(&from)?;
-		let to_fd = File::options().write(true).create(true).open(&to)?;
+		let from_fd = File::options().read(true).open(from)?;
+		let to_fd = File::options()
+			.write(true)
+			.create(true)
+			.truncate(true)
+			.open(to)?;
 
 		let num_cpus = num_cpus::get().clamp(1, 32) as u32;
 
@@ -287,25 +292,38 @@ impl ImageContext<'_> {
 		let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
 		// Set up the scroll region
 		eprint!("\n\x1b7\x1b[0;{}r\x1b8\x1b[1A", term_geometry.rows - 1);
+
+		// Various paths being used
+		// The path which used specifically for this task
+		// Contains the raw image and the mount points
 		let workdir_base = self
 			.workdir
-			.join(format!("{}-{}", &self.device.id, &self.variant));
+			.join(format!("sketches/{}-{}", &self.device.id, &self.variant));
+		// The path containing the output
+		// Follows the directory hierarchy of AOSC OS releases
 		let outdir_base = self.outdir.join(format!(
 			"os-{}/{}/rawimg/{}",
 			&self.device.arch.to_string().to_lowercase(),
 			&self.variant.to_string().to_lowercase(),
 			&self.device.vendor
 		));
+		// The full path to the output file
 		let outfile_path = outdir_base.join(&self.filename);
+		// Base directory for temporary mount points
 		let mountdir_base = workdir_base.join("mnt");
-		let size = self.device.size.get_variant_size(&self.variant) * (1 << 20);
+		// Total image size
+		let size = self.device.size.get_variant_size(self.variant) * (1 << 20);
+		// A stack which remembers all of the active mountpoints
+		// These mountpoints must be umounted before this function ends!
 		let mut mountpoint_stack: Vec<String> = Vec::new();
+		// The index of the partition which contains the root filesystem, in the partition table.
 		let mut root_dev_num = None;
 		for p in &self.device.partitions {
 			if p.usage == PartitionUsage::Rootfs {
 				root_dev_num = Some(p.num);
 			}
 		}
+		// If you don't have one, then where the hell do you store the OS?
 		if root_dev_num.is_none() {
 			bail!("Unable to find a root filesystem");
 		}
@@ -327,11 +345,11 @@ impl ImageContext<'_> {
 		// Create outdir_base and all its parents.
 		debug!(
 			"Creating directory '{}' and all of its parents ...",
-			&workdir_base.display()
+			&outdir_base.display()
 		);
 		create_dir_all(&outdir_base)?;
 		create_dir_all(&mountdir_base)?;
-		let rawimg_path = (&workdir_base).join("rawmedia.img");
+		let rawimg_path = workdir_base.join("rawmedia.img");
 		create_sparse_file(&rawimg_path, size)?;
 
 		// Attach to a loop device
@@ -351,13 +369,13 @@ impl ImageContext<'_> {
 			&loop_dev_path.display()
 		);
 
-		self.info(format!("Creating partitions ..."));
+		self.info("Creating partitions ...");
 		self.partition_image(&loop_dev_path)
 			.context("Failed to partition the image")?;
 
 		// Command::new("lsblk").spawn()?;
 
-		self.info(format!("Formating partitions ..."));
+		self.info("Formating partitions ...");
 		self.format_partitions(&loop_dev_path)?;
 		let rootpart_path =
 			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
@@ -366,31 +384,32 @@ impl ImageContext<'_> {
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
 
-		self.info(format!("Installing system distribution ..."));
+		self.info("Installing system distribution ...");
 		draw_progressbar("Installing base distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_path)?;
 		self.mount_partitions_in_root(&loop_dev_path, &rootfs_path, &mut mountpoint_stack)?;
 
-		self.info(format!("Installing BSP packages ..."));
+		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
 		let device_spec_path = self.device.file_path.to_owned();
 		let postinst_script_dir = device_spec_path
 			.parent()
 			.context("Unable to find the directory containing the device spec")?;
-		let mut postinst_script_path = (&postinst_script_dir).join("postinst.bash");
+		let mut postinst_script_path = postinst_script_dir.join("postinst.bash");
 		if !postinst_script_path.is_file() {
-			postinst_script_path = (&postinst_script_dir).join("postinst.sh");
+			postinst_script_path = postinst_script_dir.join("postinst.sh");
 		};
 		if !postinst_script_path.is_file() {
-			postinst_script_path = (&postinst_script_dir).join("postinst");
+			postinst_script_path = postinst_script_dir.join("postinst");
 		}
 		if postinst_script_path.is_file() {
-			self.info(format!("Running post installation step ..."));
+			self.info("Running post installation step ...");
 			draw_progressbar("Post installation step");
+			self.postinst_step(postinst_script_path, rootfs_path)?;
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
-		self.info(format!("Finishing up ..."));
+		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
 		self.info("Unmounting filesystems ...");
 		ImageContext::<'_>::umount_stack(&mut mountpoint_stack)?;
@@ -399,7 +418,7 @@ impl ImageContext<'_> {
 		// fs::remove_file(rawimg_path)?;
 		self.compress_image(&rawimg_path, &outfile_path)?;
 		restore_term();
-
+		sync_filesystem(&rawimg_path)?;
 		info!("Done! image finished.");
 		Ok(())
 	}

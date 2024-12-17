@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use crate::{
 	partition::PartitionType,
-	utils::{get_sparse_file, geteuid},
+	utils::{create_sparse_file, geteuid},
 };
 use anyhow::{bail, Context, Result};
 use log::info;
@@ -19,7 +19,7 @@ fn test_loopdev() -> Result<()> {
 	if unsafe { geteuid() } != 0 {
 		bail!("Not being run as root user, aborting.");
 	}
-	let back_file = get_sparse_file("/tmp/file", 512 * 1024 * 1024)?;
+	create_sparse_file("/tmp/file", 512 * 1024 * 1024)?;
 	let loopctl = loopdev::LoopControl::open()?;
 	let loopdev = loopctl.next_free()?;
 	info!(
@@ -41,7 +41,7 @@ fn test_partition_type() -> Result<()> {
 		.init();
 	let s1 = toml::to_string_pretty(&PartitionType::Basic)?;
 	let s2 = toml::to_string_pretty(&PartitionType::Linux)?;
-	let s3 = toml::to_string_pretty(&PartitionType::Efi)?;
+	let s3 = toml::to_string_pretty(&PartitionType::EFI)?;
 	let s4 = toml::to_string_pretty(&PartitionType::Swap)?;
 	let s5 = toml::to_string_pretty(&PartitionType::Uuid {
 		uuid: Uuid::from_str("C12A7328-F81F-11D2-BA4B-00A0C93EC93B")?,
