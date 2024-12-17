@@ -13,6 +13,9 @@
 # Rust build files
 /target
 
+# Test devices
+/devices/test
+
 # Garbage produced by macOS Finder
 ._*
 .DS_Store
