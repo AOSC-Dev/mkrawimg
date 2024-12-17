@@ -2,7 +2,7 @@ use std::{
 	ffi::{c_int, c_void, CString},
 	fs::File,
 	io::{Seek, Write},
-	path::Path,
+	path::{Path, PathBuf},
 	process::{Command, Stdio},
 };
 
@@ -21,7 +21,8 @@ extern "C" {
 }
 
 const AB_DIR: &str = "/usr/share/aoscbootstrap";
-
+const DEFAULT_GROUPS: &[&str] = &["audio", "video", "cdrom", "plugdev", "tty", "wheel"];
+const LOCALCONF_PATH: &str = "etc/locale.conf";
 /// Create a sparse file with specified size in bytes.
 pub fn get_sparse_file<P: AsRef<Path>>(path: P, size: u64) -> Result<File> {
 	let img_path = path.as_ref();
@@ -260,5 +261,77 @@ pub fn sync_filesystem(path: &dyn AsRef<Path>) -> Result<()> {
 	if close != 0 {
 		panic!("Failed to close fd {}: {}", fd, errno::errno());
 	}
+	Ok(())
+}
+
+pub fn add_user<S: AsRef<str>, P: AsRef<Path>>(
+	root: P,
+	name: S,
+	password: S,
+	comment: Option<S>,
+	homedir: Option<P>,
+	groups: Option<&[&str]>,
+) -> Result<()> {
+	// shadow does not expose such functionality through a library,
+	// we have to invoke commands to achieve this.
+	let name = name.as_ref();
+	let root = root.as_ref().to_string_lossy();
+	let password = password.as_ref();
+	let comment = comment.as_ref();
+	let homedir = if let Some(h) = homedir {
+		PathBuf::from(h.as_ref())
+	} else {
+		PathBuf::from("/home").join(&name)
+	};
+	let homedir = homedir.to_string_lossy();
+	let groups = if let Some(g) = groups {
+		g
+	} else {
+		DEFAULT_GROUPS
+	};
+	let groups = groups.join(",");
+	let mut cmd_useradd = Command::new("useradd");
+	let mut cmd_chpasswd = Command::new("chpasswd");
+	cmd_useradd
+		.args(["-R", &root])
+		.args(["-m", "-d", &homedir])
+		.args(["-G", &groups]);
+	if let Some(c) = comment {
+		cmd_useradd.args(["-c", c.as_ref()]);
+	}
+	cmd_useradd.arg(name);
+	cmd_chpasswd.stdin(Stdio::piped()).args(["-R", &root]);
+	let result = cmd_useradd.status().context("Failed to run useradd")?;
+	if !result.success() {
+		if let Some(c) = result.code() {
+			bail!("useradd exited with status {}", c);
+		} else {
+			bail!("useradd exited abnormally");
+		}
+	}
+	let mut chpasswd_proc = cmd_chpasswd.spawn().context("Failed to run chpasswd")?;
+	let chpasswd_stdin = chpasswd_proc
+		.stdin
+		.as_mut()
+		.context("Failed to open stdin for chpasswd")?;
+	// echo "$name:$password" | chpasswd -R /target/root
+	let chpasswd_buf = format!("{}:{}", name, password);
+	chpasswd_stdin.write_all(chpasswd_buf.as_bytes())?;
+	chpasswd_proc.wait()?;
+	Ok(())
+}
+
+pub fn set_locale<S: AsRef<str>, P: AsRef<Path>>(root: P, locale: S) -> Result<()> {
+	let root = root.as_ref();
+	let locale = locale.as_ref();
+	let locale_conf_path = root.join(LOCALCONF_PATH);
+	let locale = format!("LANG=\"{}\"", locale);
+	let mut locale_conf_fd = File::options()
+		.write(true)
+		.truncate(true)
+		.create(true)
+		.open(locale_conf_path)?;
+	locale_conf_fd.write_all(locale.as_bytes())?;
+	locale_conf_fd.sync_all()?;
 	Ok(())
 }

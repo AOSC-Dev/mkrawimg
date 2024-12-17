@@ -13,8 +13,8 @@ use crate::{
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
 	utils::{
-		create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		sync_filesystem,
+		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
+		set_locale, sync_filesystem,
 	},
 };
 use anyhow::{bail, Context, Result};
