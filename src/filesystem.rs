@@ -2,6 +2,8 @@ use anyhow::{anyhow, bail, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
+use crate::context::ImageContext;
+
 /// Speifies which filesystem to be formatted to a partition.
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -94,5 +96,36 @@ impl FilesystemType {
 		mkfs_command.arg("--");
 		mkfs_command.arg(path);
 		Ok(mkfs_command)
+	}
+}
+
+impl ImageContext<'_> {
+	#[inline]
+	pub fn format_partitions(&self, loopdev: &dyn AsRef<Path>) -> Result<()> {
+		let loopdev = loopdev.as_ref();
+		for partition in &self.device.partitions {
+			if partition.filesystem == FilesystemType::Null {
+				continue;
+			}
+			self.info(format!(
+				"Formatting partition {} ({:?})",
+				partition.num, &partition.filesystem
+			));
+			let num = partition.num;
+			let part_path = format!("{}p{}", loopdev.to_string_lossy(), num);
+			let label = &partition.label;
+			let mut command = partition
+				.filesystem
+				.get_mkfs_cmdline(&part_path, label.to_owned())?;
+			let status = command.status()?;
+			if !status.success() {
+				return Err(anyhow!(
+					"Command {:?} exited with non-zero status {}",
+					command,
+					status.code().unwrap_or(1)
+				));
+			}
+		}
+		Ok(())
 	}
 }

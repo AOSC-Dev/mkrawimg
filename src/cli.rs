@@ -37,6 +37,12 @@ pub struct Cmdline {
 	/// The mirror to download packages from.
 	#[arg(short = 'm', long, default_value = "https://repo.aosc.io/debs")]
 	pub mirror: String,
+	/// Specify username for the OS
+	#[arg(short = 'U', long, default_value = "aosc")]
+	pub user: String,
+	/// Specify password for the OS
+	#[arg(short = 'P', long, default_value = "anthon")]
+	pub password: String,
 	/// The action to take.
 	#[command(subcommand)]
 	pub action: Action,

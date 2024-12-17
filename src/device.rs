@@ -4,7 +4,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use crate::{context::ImageVariant, partition::PartitionSpec};
+use crate::{bootloader::BootloaderSpec, context::ImageVariant, partition::PartitionSpec};
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -79,6 +79,9 @@ pub struct DeviceSpec {
 	pub size: ImageVariantSizes,
 	/// Partitions in the image.
 	pub partitions: Vec<PartitionSpec>,
+	/// Actions to apply bootloaders.
+	#[serde(alias = "bootloader")]
+	pub bootloaders: Vec<BootloaderSpec>,
 	/// Path to the device.toml.
 	#[serde(skip_deserializing)]
 	pub file_path: PathBuf,

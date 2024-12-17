@@ -1,6 +1,7 @@
 // #![allow(warnings)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
+mod bootloader;
 mod cli;
 mod context;
 mod device;
@@ -196,7 +197,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					let variant_str = variant.to_string().to_lowercase();
 					// aosc-os_desktop_rawimg_raspberrypi_rpi-5b_20241108{.1}.img.xz
 					let base_dist = Path::new(&cmdline.workdir).join(format!(
-						"bootstrap-{}-{}",
+						"bootstrap/{}-{}",
 						&variant_str,
 						&device.arch.to_string().to_lowercase()
 					));
@@ -239,7 +240,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					let arch = device.arch.clone();
 					let bootstrap_path =
 						Path::new(&cmdline.workdir).join(format!(
-							"bootstrap-{}-{}",
+							"bootstrap/{}-{}",
 							&variant_str,
 							arch.to_string().to_lowercase()
 						));
@@ -261,7 +262,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			std::thread::sleep(time::Duration::from_secs(2));
 			info!("Executing the queue ...");
 			for j in queue {
-				info!("{} images pending generating", len - count);
+				info!("{} images pending.", len - count);
 				count += 1;
 				j.execute(count, len)?;
 			}
