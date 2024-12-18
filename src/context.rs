@@ -14,7 +14,7 @@ use crate::{
 	partition::PartitionUsage,
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		set_locale, sync_filesystem,
+		run_script_with_chroot, set_locale, sync_filesystem,
 	},
 };
 use anyhow::{bail, Context, Result};
@@ -22,7 +22,7 @@ use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
-use sys_mount::{unmount, Mount, UnmountFlags};
+use sys_mount::{unmount, Mount, MountFlags, UnmountFlags};
 use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
@@ -177,11 +177,64 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	fn postinst_step<P: AsRef<Path>>(&self, postinst_path: P, rootdir: P) -> Result<()> {
-		let postinst_path = postinst_path.as_ref();
+	fn setup_chroot_mounts<P: AsRef<Path>>(
+		&self,
+		rootdir: P,
+		stack: &mut Vec<String>,
+	) -> Result<()> {
+		const DIRS: &[&str] = &["proc", "sys", "dev"];
 		let rootdir = rootdir.as_ref();
+		for dir in DIRS {
+			let src = Path::new("/").join(dir);
+			let dst = rootdir.join(dir);
+			debug!(
+				"Bind mounting '{}' to '{}' ...",
+				src.display(),
+				dst.display()
+			);
+			let mount = Mount::builder().flags(MountFlags::BIND);
+			mount.mount(src, &dst)?;
+			stack.push(dst.to_string_lossy().to_string());
+		}
+		Ok(())
+	}
+
+	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P) -> Result<()> {
+		let rootdir = rootdir.as_ref();
+		self.info("Setting up the user and locale ...");
 		add_user(rootdir, "aosc", "anthon", Some("Default User"), None, None)?;
 		set_locale(rootdir, "en_US.UTF-8")?;
+
+		let postinst_script_dir =
+			self.device.file_path.parent().context(
+				"Unable to find the directory containing the device spec",
+			)?;
+		let mut postinst_script_path = postinst_script_dir.join("postinst.bash");
+		if !postinst_script_path.is_file() {
+			postinst_script_path = postinst_script_dir.join("postinst.sh");
+		};
+		if !postinst_script_path.is_file() {
+			postinst_script_path = postinst_script_dir.join("postinst");
+		}
+		if postinst_script_path.is_file() {
+			self.info("Running post installation script ...");
+			debug!(
+				"Copying {} to {} ...",
+				&postinst_script_path.display(),
+				&rootdir.display()
+			);
+			let filename = postinst_script_path
+				.file_name()
+				.context("Unable to get the basename of the script")?;
+			let dst_path = &rootdir.join(filename);
+			std::fs::copy(&postinst_script_path, &dst_path)
+				.context("Failed to copy the post installation script")?;
+			run_script_with_chroot(rootdir, &Path::new("/").join(filename), None)?;
+			std::fs::remove_file(&dst_path)
+				.context("Failed to remove the post installation script")?;
+		} else {
+			self.info("No postinst script found, skipping.");
+		}
 		Ok(())
 	}
 
@@ -350,6 +403,10 @@ impl ImageContext<'_> {
 		create_dir_all(&outdir_base)?;
 		create_dir_all(&mountdir_base)?;
 		let rawimg_path = workdir_base.join("rawmedia.img");
+		if rawimg_path.is_file() {
+			self.warn("Raw image file already exists in the workbench - removing it first.");
+			std::fs::remove_file(&rawimg_path)?;
+		}
 		create_sparse_file(&rawimg_path, size)?;
 
 		// Attach to a loop device
@@ -377,38 +434,41 @@ impl ImageContext<'_> {
 
 		self.info("Formating partitions ...");
 		self.format_partitions(&loop_dev_path)?;
-		let rootpart_path =
-			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
-		let rootfs_path = mountdir_base.join(format!("p{}", root_dev_num));
+		// let rootpart_path =
+		// 	format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
 
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
+		let rootfs_path = mountdir_base
+			.join(format!("p{}", root_dev_num))
+			.canonicalize()
+			.context("Failed to canonicalize the path of root filesystem mountpoint")?;
+		debug!("Root filesystem path: {:?}", rootfs_path);
 
 		self.info("Installing system distribution ...");
 		draw_progressbar("Installing base distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_path)?;
 		self.mount_partitions_in_root(&loop_dev_path, &rootfs_path, &mut mountpoint_stack)?;
 
+		self.info("Setting up bind mounts ...");
+		self.setup_chroot_mounts(&rootfs_path, &mut mountpoint_stack)?;
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
-		let device_spec_path = self.device.file_path.to_owned();
-		let postinst_script_dir = device_spec_path
-			.parent()
-			.context("Unable to find the directory containing the device spec")?;
-		let mut postinst_script_path = postinst_script_dir.join("postinst.bash");
-		if !postinst_script_path.is_file() {
-			postinst_script_path = postinst_script_dir.join("postinst.sh");
-		};
-		if !postinst_script_path.is_file() {
-			postinst_script_path = postinst_script_dir.join("postinst");
-		}
-		if postinst_script_path.is_file() {
-			self.info("Running post installation step ...");
-			draw_progressbar("Post installation step");
-			self.postinst_step(postinst_script_path, rootfs_path)?;
-		} else {
-			self.info("No postinst script found, skipping.");
-		}
+		// Eh we have to "convert" Vec<String> to Vec<&str>.
+		let pkgs = &self
+			.device
+			.bsp_packages
+			.iter()
+			.map(String::as_str)
+			.collect::<Vec<&str>>();
+		self.install_packages(pkgs.as_slice(), &rootfs_path)?;
+
+		self.info("Running post installation step ...");
+		draw_progressbar("Post installation step");
+		self.postinst_step(&rootfs_path)?;
+
+		self.apply_bootloaders(&rootfs_path, &loop_dev_path)?;
+
 		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
 		self.info("Unmounting filesystems ...");
