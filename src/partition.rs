@@ -120,7 +120,7 @@ mod tests {
 	const TEST_LINUX: &str = r#"type = "linux""#;
 	const TEST_SWAP: &str = r#"type = "swap""#;
 	const TEST_BASIC: &str = r#"type = "basic""#;
-	const TEST_INVALID: &str = r#"type = "whatever""#;
+	// const TEST_INVALID: &str = r#"type = "whatever""#;
 	const TEST_UUID: &str = "type = \"uuid\"\nuuid = \"933AC7E1-2EB4-4F13-B844-0E14E2AEF915\"";
 	const TEST_BYTE: &str = "type = \"byte\"\nbyte = 0x0c";
 	const TEST_EXTENDED: &str = "type = \"byte\"\nbyte = 0x05";
