@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::path::Path;
 
@@ -8,19 +9,14 @@ use serde::Deserialize;
 use crate::{context::ImageContext, device::DeviceArch, utils::run_str_script_with_chroot};
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Default, Debug, Deserialize, PartialEq, Eq)]
 pub enum Distro {
+	#[default]
 	AOSC,
 	Debian,
 	Ubuntu,
 	ArchLinux,
 	Fedora,
-}
-
-impl Default for Distro {
-	fn default() -> Self {
-		Distro::AOSC
-	}
 }
 
 pub enum APT {}

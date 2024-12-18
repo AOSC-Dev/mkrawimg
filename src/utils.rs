@@ -288,7 +288,7 @@ pub fn add_user<S: AsRef<str>, P: AsRef<Path>>(
 	let homedir = if let Some(h) = homedir {
 		PathBuf::from(h.as_ref())
 	} else {
-		PathBuf::from("/home").join(&name)
+		PathBuf::from("/home").join(name)
 	};
 	let homedir = homedir.to_string_lossy();
 	let groups = if let Some(g) = groups {

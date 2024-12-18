@@ -227,10 +227,10 @@ impl ImageContext<'_> {
 				.file_name()
 				.context("Unable to get the basename of the script")?;
 			let dst_path = &rootdir.join(filename);
-			std::fs::copy(&postinst_script_path, &dst_path)
+			std::fs::copy(&postinst_script_path, dst_path)
 				.context("Failed to copy the post installation script")?;
 			run_script_with_chroot(rootdir, &Path::new("/").join(filename), None)?;
-			std::fs::remove_file(&dst_path)
+			std::fs::remove_file(dst_path)
 				.context("Failed to remove the post installation script")?;
 		} else {
 			self.info("No postinst script found, skipping.");
