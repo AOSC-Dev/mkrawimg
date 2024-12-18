@@ -49,11 +49,12 @@ pub enum BootloaderSpec {
 	Script { name: String },
 	/// Flash a file (inside the target image) to a specific partition
 	FlashPartition { path: PathBuf, partition: usize },
-	/// Flash a file (inside the target image) to a specfifc offset at the image
+	/// Flash a file (inside the target image) to a specfifc location at the image
 	FlashOffset { path: PathBuf, offset: usize },
 }
 
 impl ImageContext<'_> {
+	#[allow(unused_variables)]
 	pub fn apply_bootloaders<P: AsRef<Path>>(&self, rootfs: P, loopdev: P) -> Result<()> {
 		if self.device.bootloaders.is_none() {
 			return Ok(());
