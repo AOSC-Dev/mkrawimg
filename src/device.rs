@@ -8,6 +8,7 @@ use crate::{
 	bootloader::BootloaderSpec,
 	context::{ImageContext, ImageVariant},
 	partition::{PartitionSpec, PartitionUsage},
+	pm::Distro,
 };
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
@@ -57,6 +58,9 @@ pub struct DeviceSpec {
 	pub id: String,
 	/// Aliases to identify the exact device.
 	pub aliases: Option<Vec<String>>,
+	/// The distribution wich will be installed on this device.
+	#[serde(default)]
+	pub distro: Distro,
 	/// Vendor of the device.
 	pub vendor: String,
 	/// CPU Architecture of the device.

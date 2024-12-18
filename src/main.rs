@@ -10,6 +10,7 @@ mod context;
 mod device;
 mod filesystem;
 mod partition;
+mod pm;
 mod registry;
 mod tests;
 mod utils;

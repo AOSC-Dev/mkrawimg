@@ -358,3 +358,31 @@ pub fn check_binfmt(arch: &DeviceArch) -> Result<()> {
 	}
 	Ok(())
 }
+
+pub fn run_str_script_with_chroot(
+	root: &dyn AsRef<Path>,
+	script: &str,
+	shell: Option<&dyn AsRef<str>>,
+) -> Result<()> {
+	let mut cmd = Command::new("chroot");
+	let shell = if let Some(s) = shell {
+		s.as_ref()
+	} else {
+		"/bin/bash"
+	};
+	// Let's assume all shells supports "-c SCRIPT".
+	// But I think it is better to pipe into the shell's stdin.
+	cmd.args([&root.as_ref().to_string_lossy(), shell, "-c", "--", script]);
+	let result = cmd.status().context("Failed to run chroot")?;
+	if result.success() {
+		Ok(())
+	} else if let Some(c) = result.code() {
+		bail!(
+			"The following command failed with exit status {}:\n{:?}",
+			c,
+			&cmd
+		)
+	} else {
+		bail!("The following command exited abnormally:\n{:?}", &cmd)
+	}
+}
