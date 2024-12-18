@@ -146,6 +146,48 @@ impl ImageVariantSizes {
 	}
 }
 
+impl DeviceArch {
+	pub fn get_native_arch() -> Option<&'static Self> {
+		use std::env::consts::ARCH;
+		match ARCH {
+			"x86_64" => Some(&Self::Amd64),
+			"aarch64" => Some(&Self::Arm64),
+			"loongarch64" => Some(&Self::LoongArch64),
+			"mips64" => {
+				if cfg!(target_cpu = "mips64r6") {
+					Some(&Self::Mips64r6el)
+				} else {
+					Some(&Self::Loongson3)
+				}
+			}
+			"riscv64" => Some(&Self::Riscv64),
+			// TODO ppc64el needs work.
+			"powerpc64" => Some(&Self::Ppc64el),
+			_ => None,
+		}
+	}
+	pub fn is_native(&self) -> bool {
+		if let Some(a) = Self::get_native_arch() {
+			if a == self {
+				return true;
+			}
+		}
+		false
+	}
+
+	pub fn get_qemu_binfmt_names(&self) -> &str {
+		match self {
+			Self::Amd64 => "qemu-x86_64",
+			Self::Arm64 => "qemu-aarch64",
+			Self::LoongArch64 => "qemu-loongarch64",
+			Self::Ppc64el => "qemu-ppc64le",
+			Self::Loongson3 => "qemu-mips64el",
+			Self::Riscv64 => "qemu-riscv64",
+			Self::Mips64r6el => "qemu-mips64el",
+		}
+	}
+}
+
 impl ImageContext<'_> {
 	pub fn partition_gpt(&self, img: &Path) -> Result<()> {
 		// The device must be opened write-only to write partition tables

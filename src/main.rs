@@ -28,7 +28,7 @@ use filesystem::FilesystemType;
 use log::{debug, error, info, warn};
 use owo_colors::colored::*;
 use registry::DeviceRegistry;
-use utils::{bootstrap_distribution, restore_term};
+use utils::{bootstrap_distribution, check_binfmt, restore_term};
 
 enum BuildMode {
 	BuildOne,
@@ -78,7 +78,10 @@ fn main() -> Result<()> {
 			ident += 1;
 			str_buf += &format!("{0}- Caused by:\n{0}  {1}", ident_str, cause);
 		});
-		error!("{}", str_buf);
+		if !str_buf.is_empty() {
+			error!("{}", str_buf);
+		}
+		error!("Exiting now.");
 		std::process::exit(1);
 	}
 	Ok(())
@@ -196,6 +199,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			let mut queue = ImageContextQueue::new();
 			let variants = variants.as_slice();
 			for device in devices.as_slice() {
+				check_binfmt(&device.arch)?;
 				for variant in variants {
 					let variant_str = variant.to_string().to_lowercase();
 					// aosc-os_desktop_rawimg_raspberrypi_rpi-5b_20241108{.1}.img.xz

@@ -26,6 +26,8 @@ extern "C" {
 const AB_DIR: &str = "/usr/share/aoscbootstrap";
 const DEFAULT_GROUPS: &[&str] = &["audio", "video", "cdrom", "plugdev", "tty", "wheel"];
 const LOCALCONF_PATH: &str = "etc/locale.conf";
+const BINFMT_DIR: &str = "/proc/sys/fs/binfmt_misc";
+
 /// Create a sparse file with specified size in bytes.
 pub fn get_sparse_file<P: AsRef<Path>>(path: P, size: u64) -> Result<File> {
 	let img_path = path.as_ref();
@@ -338,5 +340,21 @@ pub fn set_locale<S: AsRef<str>, P: AsRef<Path>>(root: P, locale: S) -> Result<(
 		.open(locale_conf_path)?;
 	locale_conf_fd.write_all(locale.as_bytes())?;
 	locale_conf_fd.sync_all()?;
+	Ok(())
+}
+
+pub fn check_binfmt(arch: &DeviceArch) -> Result<()> {
+	if arch.is_native() {
+		return Ok(());
+	}
+	let name = arch.get_qemu_binfmt_names();
+	let binfmt_path = Path::new(BINFMT_DIR);
+	if !binfmt_path.is_dir() {
+		bail!("binfmt_misc support is currently not available on your system. Cannot continue.")
+	}
+	let path = binfmt_path.join(name);
+	if !path.is_file() {
+		bail!("{} is not found in registered binfmt_misc targets.\nPlease make sure QEMU static and binfmt file for this target are installed.", name);
+	}
 	Ok(())
 }
