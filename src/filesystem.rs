@@ -127,17 +127,7 @@ impl ImageContext<'_> {
 			let num = partition.num;
 			let part_path = format!("{}p{}", loopdev.to_string_lossy(), num);
 			let label = &partition.label;
-			let mut command = partition
-				.filesystem
-				.get_mkfs_cmdline(&part_path, label.to_owned())?;
-			let status = command.status()?;
-			if !status.success() {
-				return Err(anyhow!(
-					"Command {:?} exited with non-zero status {}",
-					command,
-					status.code().unwrap_or(1)
-				));
-			}
+			filesystem.format(&part_path, label.to_owned())?;
 		}
 		Ok(())
 	}
