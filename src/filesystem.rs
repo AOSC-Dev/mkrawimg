@@ -106,9 +106,18 @@ impl ImageContext<'_> {
 			if partition.filesystem == FilesystemType::Null {
 				continue;
 			}
+			let filesystem = if partition.usage == PartitionUsage::Rootfs {
+				if let Some(fstype) = self.override_rootfs_fstype {
+					fstype
+				} else {
+					&partition.filesystem
+				}
+			} else {
+				&partition.filesystem
+			};
 			self.info(format!(
 				"Formatting partition {} ({:?})",
-				partition.num, &partition.filesystem
+				partition.num, filesystem
 			));
 			let num = partition.num;
 			let part_path = format!("{}p{}", loopdev.to_string_lossy(), num);
