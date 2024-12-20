@@ -18,6 +18,8 @@ use mbrman::{MBRPartitionEntry, CHS, MBR};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+const FORBIDDEN_CHARS: &[char] = &['\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&'];
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 // It is strange to see MBR as Mbr, GPT as Gpt.
@@ -67,7 +69,7 @@ pub struct DeviceSpec {
 	pub arch: DeviceArch,
 	/// Vendor of the SoC platform.
 	/// The name must present in arch/$ARCH/boot/dts in the kernel tree.
-	pub soc_vendor: String,
+	pub soc_vendor: Option<String>,
 	/// Full name of the device for humans.
 	pub name: String,
 	/// Model name of the device, if it is different than the full name.
@@ -109,6 +111,16 @@ pub struct ImageVariantSizes {
 	pub base: u64,
 	pub desktop: u64,
 	pub server: u64,
+}
+
+#[allow(dead_code)]
+pub struct PartitionMapData {
+	pub root_partnum: usize,
+	pub root_partuuid: String,
+	pub efi_partnum: Option<usize>,
+	pub efi_partuuid: Option<usize>,
+	pub boot_partnum: Option<usize>,
+	pub boot_partuuid: Option<usize>,
 }
 
 impl Default for ImageVariantSizes {
@@ -257,7 +269,7 @@ impl DeviceArch {
 			"aarch64" => Some(&Self::Arm64),
 			"loongarch64" => Some(&Self::LoongArch64),
 			"mips64" => {
-				if cfg!(target_cpu = "mips64r6") {
+				if cfg!(target_arch = "mips64r6") {
 					Some(&Self::Mips64r6el)
 				} else {
 					Some(&Self::Loongson3)
@@ -292,7 +304,7 @@ impl DeviceArch {
 }
 
 impl ImageContext<'_> {
-	pub fn partition_gpt(&self, img: &Path) -> Result<()> {
+	pub fn partition_gpt(&self, img: &Path) -> Result<PartitionMapData> {
 		// The device must be opened write-only to write partition tables
 		// Otherwise EBADF will be throwed
 		let mut fd = File::options().write(true).open(img)?;
@@ -304,6 +316,8 @@ impl ImageContext<'_> {
 			img.display(),
 			sector_size
 		);
+		let mut root_partnum = 0;
+		let mut root_partuuid = Uuid::nil();
 		let rand_uuid = Uuid::new_v4();
 		// NOTE UUIDs in GPT are like structs, they are "Mixed-endian."
 		// The first three components are little-endian, and the last two are big-endian.
@@ -388,6 +402,10 @@ impl ImageContext<'_> {
 				partition_name: partition_name.into(),
 			};
 			new_table[partition.num] = part;
+			if partition.usage == PartitionUsage::Rootfs {
+				root_partnum = partition.num;
+				root_partuuid = rand_part_uuid;
+			}
 		}
 		self.info("Writing changes ...");
 		// Protective MBR is written for compatibility.
@@ -396,16 +414,24 @@ impl ImageContext<'_> {
 		GPT::write_protective_mbr_into(&mut fd, sector_size)?;
 		new_table.write_into(&mut fd)?;
 		fd.sync_all()?;
-		Ok(())
+		let pm_data = PartitionMapData {
+			root_partnum: root_partnum as usize,
+			root_partuuid: root_partuuid.to_string(),
+			efi_partnum: None,
+			efi_partuuid: None,
+			boot_partnum: None,
+			boot_partuuid: None,
+		};
+		Ok(pm_data)
 	}
 
-	pub fn partition_mbr(&self, img: &Path) -> Result<()> {
+	pub fn partition_mbr(&self, img: &Path) -> Result<PartitionMapData> {
 		let mut fd = File::options().write(true).open(img)?;
 		let sector_size =
 			TryInto::<u32>::try_into(gptman::linux::get_sector_size(&mut fd)?)
 				.unwrap_or(512);
 		let random_id: u32 = rand::random();
-		let disk_signature = random_id.to_be_bytes();
+		let disk_signature = random_id.to_le_bytes();
 		let mut new_table = MBR::new_from(&mut fd, sector_size, disk_signature)?;
 		self.info(format!("Created a MBR table on {}:", img.display()));
 		self.info(format!(
@@ -413,6 +439,8 @@ impl ImageContext<'_> {
 			(random_id >> 16) as u16,
 			(random_id & 0xffff) as u16
 		));
+		let mut root_partnum = 0;
+		let mut root_partuuid = String::new();
 		for partition in &self.device.partitions {
 			if partition.num == 0 {
 				bail!("Partition number must start from 1.");
@@ -474,11 +502,47 @@ impl ImageContext<'_> {
 				sectors,
 			};
 			new_table[idx] = part;
+			if partition.usage == PartitionUsage::Rootfs {
+				root_partnum = partition.num;
+				root_partuuid = format!("{:08x}-{:02x}", random_id, root_partnum);
+			}
 		}
 		self.info("Writing the partition table ...");
 		new_table.write_into(&mut fd)?;
 		fd.sync_all()?;
-		Ok(())
+		let pm_data = PartitionMapData {
+			root_partnum: root_partnum as usize,
+			root_partuuid,
+			efi_partnum: None,
+			efi_partuuid: None,
+			boot_partnum: None,
+			boot_partuuid: None,
+		};
+		Ok(pm_data)
+	}
+	pub fn gen_spec_script(
+		&self,
+		loopdev: &dyn AsRef<Path>,
+		partuuid: &Uuid,
+		fsuuid: &Uuid,
+	) -> Result<String> {
+		let script = format!(
+			r#"
+DEVICE_ID='{0}'
+DEVICE_COMPATIBLE='{1}'
+LOOPDEV='{2}'
+NUM_PARTITIONS='{3}'
+ROOT_PARTUUID='{4}'
+ROOT_FSUUID='{5}'
+"#,
+			self.device.id,
+			&self.device.of_compatible.clone().unwrap_or("".to_string()),
+			loopdev.as_ref().to_string_lossy(),
+			self.device.num_partitions,
+			partuuid,
+			fsuuid
+		);
+		Ok(script)
 	}
 }
 

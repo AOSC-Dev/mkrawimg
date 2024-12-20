@@ -2,7 +2,7 @@ use anyhow::{anyhow, bail, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
-use crate::context::ImageContext;
+use crate::{context::ImageContext, partition::PartitionUsage, utils::cmd_run_check_status};
 
 /// Speifies which filesystem to be formatted to a partition.
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]

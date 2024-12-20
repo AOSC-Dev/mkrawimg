@@ -13,8 +13,8 @@ use crate::{
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
 	utils::{
-		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		run_script_with_chroot, set_locale, sync_filesystem,
+		add_user, create_sparse_file, get_fsuuid, refresh_partition_table, restore_term,
+		rsync_sysroot, run_script_with_chroot, set_locale, sync_filesystem,
 	},
 };
 use anyhow::{bail, Context, Result};
@@ -41,6 +41,8 @@ pub struct ImageContext<'a> {
 	pub variant: &'a ImageVariant,
 	pub workdir: &'a Path,
 	pub outdir: &'a Path,
+	pub user: &'a str,
+	pub password: &'a str,
 	// Filename can not be a ref unless there's another thing that
 	// holds the (rather unique) filename during execution, since
 	// the filename is combined with several pieces.
@@ -183,6 +185,7 @@ impl ImageContext<'_> {
 		stack: &mut Vec<String>,
 	) -> Result<()> {
 		const DIRS: &[&str] = &["proc", "sys", "dev"];
+		const TMPDIRS: &[&str] = &["run", "tmp"];
 		let rootdir = rootdir.as_ref();
 		for dir in DIRS {
 			let src = Path::new("/").join(dir);
@@ -194,6 +197,14 @@ impl ImageContext<'_> {
 			);
 			let mount = Mount::builder().flags(MountFlags::BIND);
 			mount.mount(src, &dst)?;
+			stack.push(dst.to_string_lossy().to_string());
+		}
+		// Mount /run and /tmp
+		for dir in TMPDIRS {
+			let dst = rootdir.join(dir);
+			debug!("Mounting tmpfs to {} ...", &dst.display());
+			let mount = Mount::builder().fstype("tmpfs");
+			mount.mount("tmpfs", &dst)?;
 			stack.push(dst.to_string_lossy().to_string());
 		}
 		Ok(())
@@ -226,10 +237,10 @@ impl ImageContext<'_> {
 			let filename = postinst_script_path
 				.file_name()
 				.context("Unable to get the basename of the script")?;
-			let dst_path = &rootdir.join(filename);
+			let dst_path = &rootdir.join("tmp").join(filename);
 			std::fs::copy(&postinst_script_path, dst_path)
 				.context("Failed to copy the post installation script")?;
-			run_script_with_chroot(rootdir, &Path::new("/").join(filename), None)?;
+			run_script_with_chroot(rootdir, &Path::new("/tmp").join(filename), None)?;
 			std::fs::remove_file(dst_path)
 				.context("Failed to remove the post installation script")?;
 		} else {
@@ -434,8 +445,9 @@ impl ImageContext<'_> {
 
 		self.info("Formating partitions ...");
 		self.format_partitions(&loop_dev_path)?;
-		// let rootpart_path =
-		// 	format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		let rootpart_path =
+			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		let root_fsuuid = get_fsuuid(&rootpart_path)?;
 
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
@@ -452,6 +464,9 @@ impl ImageContext<'_> {
 
 		self.info("Setting up bind mounts ...");
 		self.setup_chroot_mounts(&rootfs_path, &mut mountpoint_stack)?;
+
+		self.gen_spec_script(&loop_dev_path, &root_fsuuid, &root_fsuuid)?;
+
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
 		// Eh we have to "convert" Vec<String> to Vec<&str>.

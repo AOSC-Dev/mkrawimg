@@ -23,6 +23,8 @@ use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use clap::Parser;
+#[cfg(not(debug_assertions))]
+use cli::Action;
 use cli::{Cmdline, RootFsType};
 use context::{ImageContext, ImageContextQueue};
 use filesystem::FilesystemType;
@@ -54,8 +56,13 @@ fn main() -> Result<()> {
 	// Parse the command line
 	let cmdline = Cmdline::try_parse()?;
 	#[cfg(not(debug_assertions))]
-	if unsafe { utils::geteuid() } != 0 {
-		bail!("Please run me as root!");
+	match &cmdline.action {
+		Action::Build { .. } | Action::BuildAll { .. } => {
+			if unsafe { utils::geteuid() } != 0 {
+				bail!("Please run me as root!");
+			}
+		}
+		_ => (),
 	}
 	let mut logger = colog::basic_builder();
 	if cmdline.debug {

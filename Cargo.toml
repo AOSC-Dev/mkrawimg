@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.94"
+blkid = "1.0.1"
 chrono = "0.4.39"
 clap = { version = "4.5.23", features = ["derive"] }
 colog = "1.3.0"
