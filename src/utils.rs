@@ -269,14 +269,19 @@ pub fn sync_filesystem(path: &dyn AsRef<Path>) -> Result<()> {
 	Ok(())
 }
 
-pub fn add_user<S: AsRef<str>, P: AsRef<Path>>(
+pub fn add_user<S, T, P>(
 	root: P,
 	name: S,
 	password: S,
-	comment: Option<S>,
+	comment: Option<T>,
 	homedir: Option<P>,
 	groups: Option<&[&str]>,
-) -> Result<()> {
+) -> Result<()> 
+where
+S: AsRef<str>,
+T: AsRef<str>,
+P: AsRef<Path>
+{
 	// shadow does not expose such functionality through a library,
 	// we have to invoke commands to achieve this.
 	let name = name.as_ref();

@@ -199,6 +199,8 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			// build image contexts
 			let mut queue = ImageContextQueue::new();
 			let variants = variants.as_slice();
+			let user = &cmdline.user;
+			let password = &cmdline.password;
 			for device in devices.as_slice() {
 				check_binfmt(&device.arch)?;
 				for variant in variants {
@@ -228,6 +230,8 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 						variant,
 						workdir: &cmdline.workdir,
 						outdir: &cmdline.outdir,
+						user,
+						password,
 						filename,
 						override_rootfs_fstype: &fstype,
 						additional_packages: &additional_packages,
