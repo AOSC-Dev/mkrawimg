@@ -1,6 +1,6 @@
 use crate::device::DeviceSpec;
 use anyhow::{anyhow, bail, Context, Result};
-use log::{debug, info};
+use log::{debug, error, info};
 use owo_colors::OwoColorize;
 use std::{
 	collections::HashMap,
@@ -143,6 +143,46 @@ impl DeviceRegistry {
 	}
 
 	pub fn check_validity(self) -> Result<()> {
-		Ok(())
+		let mut errs = Vec::<anyhow::Error>::new();
+		for d in self.devices {
+			let result = d.check().context(format!(
+				"Sanity check failed for device '{}' at {}:",
+				&d.id,
+				&d.file_path.display()
+			));
+			match result {
+				Err(e) => {
+					error!(
+						"FAIL: {} ({})\n\t{}",
+						&d.id,
+						&d.name,
+						&d.file_path.display()
+					);
+					errs.push(e);
+				}
+				Ok(_) => {
+					info!(
+						"PASS: {} ({})\n\t{}",
+						&d.id,
+						&d.name,
+						&d.file_path.display()
+					)
+				}
+			}
+		}
+		if errs.is_empty() {
+			return Ok(());
+		} else {
+			for e in errs {
+				let mut s = String::new();
+				s += &e.to_string();
+				e.chain().skip(1).for_each(|c| {
+					s += "\n";
+					s += &c.to_string();
+				});
+				error!("{}", s);
+			}
+			bail!("Sanity check failed. Please check the output for details.")
+		}
 	}
 }

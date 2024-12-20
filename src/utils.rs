@@ -7,9 +7,14 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
+use blkid::{
+	dev::GetDevFlags,
+	tag::{SuperblockTag, TagType},
+};
 use libc::{close, open, O_NONBLOCK, O_RDONLY};
 use log::{debug, info};
 use termsize::Size;
+use uuid::Uuid;
 
 use crate::{context::ImageVariant, device::DeviceArch};
 
@@ -208,14 +213,7 @@ pub fn rsync_sysroot<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
 	command.arg(format!("{}/", dst.to_string_lossy()));
 	debug!("Running command {:?}", command);
 	// return Ok(());
-	let status = command.status().context("Failed to run rsync")?;
-	if status.success() {
-		Ok(())
-	} else if let Some(s) = status.code() {
-		Err(anyhow!("rsync exited with non-zero status {}", s))
-	} else {
-		Err(anyhow!("rsync exited abnormally"))
-	}
+	cmd_run_check_status(&mut command)
 }
 
 /// Recover the terminal
@@ -308,14 +306,7 @@ pub fn add_user<S: AsRef<str>, P: AsRef<Path>>(
 	}
 	cmd_useradd.arg(name);
 	cmd_chpasswd.stdin(Stdio::piped()).args(["-R", &root]);
-	let result = cmd_useradd.status().context("Failed to run useradd")?;
-	if !result.success() {
-		if let Some(c) = result.code() {
-			bail!("useradd exited with status {}", c);
-		} else {
-			bail!("useradd exited abnormally");
-		}
-	}
+	cmd_run_check_status(&mut cmd_useradd)?;
 	let mut chpasswd_proc = cmd_chpasswd.spawn().context("Failed to run chpasswd")?;
 	let chpasswd_stdin = chpasswd_proc
 		.stdin
@@ -359,6 +350,23 @@ pub fn check_binfmt(arch: &DeviceArch) -> Result<()> {
 	Ok(())
 }
 
+pub fn cmd_run_check_status(cmd: &mut Command) -> Result<()> {
+	let result = cmd
+		.status()
+		.context(format!("Failed to run {:?}", cmd.get_program()))?;
+	if result.success() {
+		Ok(())
+	} else if let Some(c) = result.code() {
+		Err(anyhow!(
+			"The following command failed with exit code {}:\n{:?}",
+			c,
+			cmd
+		))
+	} else {
+		Err(anyhow!("The following command exited abnormally:\n{:?}", cmd))
+	}
+}
+
 pub fn run_str_script_with_chroot(
 	root: &dyn AsRef<Path>,
 	script: &str,
@@ -373,18 +381,7 @@ pub fn run_str_script_with_chroot(
 	// Let's assume all shells supports "-c SCRIPT".
 	// But I think it is better to pipe into the shell's stdin.
 	cmd.args([&root.as_ref().to_string_lossy(), shell, "-c", "--", script]);
-	let result = cmd.status().context("Failed to run chroot")?;
-	if result.success() {
-		Ok(())
-	} else if let Some(c) = result.code() {
-		bail!(
-			"The following command failed with exit status {}:\n{:?}",
-			c,
-			&cmd
-		)
-	} else {
-		bail!("The following command exited abnormally:\n{:?}", &cmd)
-	}
+	cmd_run_check_status(&mut cmd)
 }
 
 pub fn run_script_with_chroot<P: AsRef<Path>>(
@@ -406,16 +403,49 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 		"--",
 		&script.as_ref().to_string_lossy(),
 	]);
-	let result = cmd.status().context("Failed to run chroot")?;
-	if result.success() {
+	cmd_run_check_status(&mut cmd).context("Failed to run script with chroot")
+}
+
+/// Get filesystem UUID of the given block device.
+pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<Uuid> {
+	let fspath = fspath.as_ref();
+	let fspath_str = fspath.to_string_lossy();
+	let cache = blkid::cache::Cache::new()?;
+	let dev = cache.get_dev(&fspath_str, GetDevFlags::FIND)?;
+	let tags = dev.tags();
+	let uuid_filtered: Vec<_> = tags
+		.filter(|x| match x.typ() {
+			TagType::Superblock(st) => {
+				if st == SuperblockTag::Uuid {
+					return true;
+				}
+				return false;
+			}
+			_ => {
+				return false;
+			}
+		})
+		.collect();
+	if uuid_filtered.is_empty() {
+		bail!("No UUID Tag found; Perhaps there's no filesystem in this partition, or the type of the filesystem can't be identified");
+	}
+	if uuid_filtered.len() > 1 {
+		bail!("More than one UUID tag found for the filesystem, the path must point to a partition")
+	}
+	let uuid_tag = uuid_filtered.last().unwrap();
+	Uuid::parse_str(uuid_tag.value())
+		.context(format!("Failed to get UUID for filesystem {}", fspath_str))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::get_fsuuid;
+	use anyhow::Result;
+
+	#[test]
+	fn test_get_uuid() -> Result<()> {
+		let uuid = get_fsuuid(&"/dev/nvme0n1p2")?;
+		eprintln!("FSUUID for nvme0n1p2: {}", uuid);
 		Ok(())
-	} else if let Some(c) = result.code() {
-		bail!(
-			"The following command failed with exit status {}:\n{:?}",
-			c,
-			&cmd
-		)
-	} else {
-		bail!("The following command exited abnormally:\n{:?}", &cmd)
 	}
 }

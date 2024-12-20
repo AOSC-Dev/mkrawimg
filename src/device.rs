@@ -7,7 +7,7 @@ use std::{
 use crate::{
 	bootloader::BootloaderSpec,
 	context::{ImageContext, ImageVariant},
-	partition::{PartitionSpec, PartitionUsage},
+	partition::{PartitionSpec, PartitionType, PartitionUsage},
 	pm::Distro,
 };
 use anyhow::{bail, Context, Result};
@@ -137,6 +137,105 @@ impl DeviceSpec {
 		))?;
 		device.file_path = file.canonicalize()?;
 		Ok(device)
+	}
+
+	pub fn check(&self) -> Result<()> {
+		let mut strs_to_chk = vec![&self.id, &self.vendor];
+		if let Some(aliases) = &self.aliases {
+			aliases.iter().for_each(|s| strs_to_chk.push(&s));
+		}
+		if let Some(c) = &self.of_compatible {
+			strs_to_chk.push(c)
+		}
+		for field in &strs_to_chk {
+			if !field.is_ascii() {
+				bail!("'{}' contains non-ASCII characters", field);
+			}
+			if field.contains(FORBIDDEN_CHARS) {
+				bail!(
+					"'{}' contains one of the following characters:\n{:?}",
+					field,
+					FORBIDDEN_CHARS
+				);
+			}
+		}
+		let mut strs_to_chk = vec![&self.name];
+		if let Some(m) = &self.model {
+			strs_to_chk.push(m);
+		}
+		for field in &strs_to_chk {
+			if field.contains(FORBIDDEN_CHARS) {
+				bail!(
+					"'{}' contains one of the following characters:\n{:?}",
+					field,
+					FORBIDDEN_CHARS
+				);
+			}
+		}
+		if self.partitions.is_empty() {
+			bail!("No partition defined for this device");
+		}
+		// Check consistency
+		if self.num_partitions != self.partitions.len() as u32 {
+			bail!(
+				"Please update the num_partitions field: should be {}, got {}",
+				self.partitions.len(),
+				self.num_partitions
+			);
+		}
+		// Can't have too many partitions
+		let len = self.partitions.len();
+		match self.partition_map {
+			PartitionMapType::MBR => {
+				if len > 4 {
+					bail!("MBR partition map can contain up to 4 partitions");
+				}
+			}
+			PartitionMapType::GPT => {
+				if len > 128 {
+					bail!("Too many partitions for GPT");
+				}
+			}
+		}
+		// Some devices may not have a boot partition.
+		// Some devices may use MBR partition map.
+		// Let's make the root partition the only requirement here.
+		let mut root_part = None;
+		let mut last_partition_num = 0;
+		for partition in &self.partitions {
+			if partition.part_type == PartitionType::Swap {
+				bail!("Swap partitions are not allowed on raw images.");
+			}
+			if partition.num == 0 {
+				bail!("Partition numbers should start from 1.");
+			}
+			if partition.num < last_partition_num {
+				bail!("Please keep the partitions in order");
+			}
+			if partition.num == last_partition_num {
+				bail!("Duplicate partition number: {}", partition.num);
+			}
+			if partition.usage == PartitionUsage::Rootfs {
+				if root_part.is_some() {
+					bail!("More than one root partition defined");
+				}
+				root_part = Some(partition);
+			}
+			if let Some(l) = &partition.label {
+				if self.partition_map == PartitionMapType::MBR {
+					bail!("MBR partition map does not allow partition labels, found one in partition {}", partition.num);
+				}
+				if l.len() > 35 {
+					bail!("Label for partition {} exceeds the 35-character limit", partition.num);
+				}
+			}
+			last_partition_num = partition.num;
+			partition.filesystem.check(&partition.fs_label)?;
+		}
+		if root_part.is_none() {
+			bail!("No root partition defined");
+		}
+		Ok(())
 	}
 }
 
