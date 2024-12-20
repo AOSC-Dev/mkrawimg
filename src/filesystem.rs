@@ -97,6 +97,11 @@ impl FilesystemType {
 		mkfs_command.arg(path);
 		Ok(mkfs_command)
 	}
+
+	pub fn format(&self, path: &dyn AsRef<Path>, label: Option<String>) -> Result<()> {
+		let mut cmd = self.get_mkfs_cmdline(path, label)?;
+		cmd_run_check_status(&mut cmd)
+	}
 }
 
 impl ImageContext<'_> {
