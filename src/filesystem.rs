@@ -24,7 +24,7 @@ pub enum FilesystemType {
 
 impl FilesystemType {
 	/// Check validaty of the filesystem parameters.
-	pub fn check<S: AsRef<str>>(&self, label: Option<S>) -> Result<()> {
+	pub fn check<S: AsRef<str>>(&self, label: &Option<S>) -> Result<()> {
 		let label = label.as_ref();
 		// Check for validity of the filesystem labels.
 		if let Some(l) = label {
@@ -69,7 +69,7 @@ impl FilesystemType {
 			bail!("Instructed to not being formatted");
 		}
 		let path = path.as_ref();
-		self.check(label.to_owned())?;
+		self.check(&label)?;
 		// Decide which command to use.
 		let mut mkfs_command = Command::new(match self {
 			Self::Ext4 => "mkfs.ext4",
