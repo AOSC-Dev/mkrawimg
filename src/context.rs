@@ -213,7 +213,14 @@ impl ImageContext<'_> {
 	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		self.info("Setting up the user and locale ...");
-		add_user(rootdir, &self.user, &self.password, Some("Default User"), None, None)?;
+		add_user(
+			rootdir,
+			&self.user,
+			&self.password,
+			Some("Default User"),
+			None,
+			None,
+		)?;
 		set_locale(rootdir, "en_US.UTF-8")?;
 
 		let postinst_script_dir =
@@ -448,6 +455,7 @@ impl ImageContext<'_> {
 		self.format_partitions(&loop_dev_path)?;
 		let rootpart_path =
 			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		debug!("Retreiving fileystem UUID of the root filesystem ...");
 		let root_fsuuid = get_fsuuid(&rootpart_path)?;
 
 		self.info("Mounting partitions ...");

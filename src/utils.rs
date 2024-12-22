@@ -11,7 +11,6 @@ use blkid::prober::ProbeState;
 use libc::{close, open, O_NONBLOCK, O_RDONLY};
 use log::{debug, info};
 use termsize::Size;
-use uuid::Uuid;
 
 use crate::{context::ImageVariant, device::DeviceArch};
 
@@ -273,11 +272,11 @@ pub fn add_user<S, T, P>(
 	comment: Option<T>,
 	homedir: Option<P>,
 	groups: Option<&[&str]>,
-) -> Result<()> 
+) -> Result<()>
 where
-S: AsRef<str>,
-T: AsRef<str>,
-P: AsRef<Path>
+	S: AsRef<str>,
+	T: AsRef<str>,
+	P: AsRef<Path>,
 {
 	// shadow does not expose such functionality through a library,
 	// we have to invoke commands to achieve this.
@@ -365,7 +364,10 @@ pub fn cmd_run_check_status(cmd: &mut Command) -> Result<()> {
 			cmd
 		))
 	} else {
-		Err(anyhow!("The following command exited abnormally:\n{:?}", cmd))
+		Err(anyhow!(
+			"The following command exited abnormally:\n{:?}",
+			cmd
+		))
 	}
 }
 

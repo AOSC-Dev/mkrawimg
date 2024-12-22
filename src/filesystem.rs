@@ -2,7 +2,11 @@ use anyhow::{anyhow, bail, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
-use crate::{context::ImageContext, partition::PartitionUsage, utils::cmd_run_check_status};
+use crate::{
+	context::ImageContext,
+	partition::PartitionUsage,
+	utils::cmd_run_check_status,
+};
 
 /// Speifies which filesystem to be formatted to a partition.
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -99,7 +103,8 @@ impl FilesystemType {
 	}
 
 	pub fn format(&self, path: &dyn AsRef<Path>, label: Option<String>) -> Result<()> {
-		let mut cmd = self.get_mkfs_cmdline(path, label)?;
+		let dev = path.as_ref();
+		let mut cmd = self.get_mkfs_cmdline(&dev, label)?;
 		cmd_run_check_status(&mut cmd)
 	}
 }
