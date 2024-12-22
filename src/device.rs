@@ -523,8 +523,8 @@ impl ImageContext<'_> {
 	pub fn gen_spec_script(
 		&self,
 		loopdev: &dyn AsRef<Path>,
-		partuuid: &Uuid,
-		fsuuid: &Uuid,
+		partuuid: &dyn AsRef<str>,
+		fsuuid: &dyn AsRef<str>,
 	) -> Result<String> {
 		let script = format!(
 			r#"
@@ -539,8 +539,8 @@ ROOT_FSUUID='{5}'
 			&self.device.of_compatible.clone().unwrap_or("".to_string()),
 			loopdev.as_ref().to_string_lossy(),
 			self.device.num_partitions,
-			partuuid,
-			fsuuid
+			partuuid.as_ref(),
+			fsuuid.as_ref()
 		);
 		Ok(script)
 	}

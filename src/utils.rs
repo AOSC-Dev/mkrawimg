@@ -7,10 +7,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Context, Result};
-use blkid::{
-	dev::GetDevFlags,
-	tag::{SuperblockTag, TagType},
-};
+use blkid::prober::ProbeState;
 use libc::{close, open, O_NONBLOCK, O_RDONLY};
 use log::{debug, info};
 use termsize::Size;
@@ -412,34 +409,44 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 }
 
 /// Get filesystem UUID of the given block device.
-pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<Uuid> {
+pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<String> {
 	let fspath = fspath.as_ref();
-	let fspath_str = fspath.to_string_lossy();
-	let cache = blkid::cache::Cache::new()?;
-	let dev = cache.get_dev(&fspath_str, GetDevFlags::FIND)?;
-	let tags = dev.tags();
-	let uuid_filtered: Vec<_> = tags
-		.filter(|x| match x.typ() {
-			TagType::Superblock(st) => {
-				if st == SuperblockTag::Uuid {
-					return true;
-				}
-				return false;
-			}
-			_ => {
-				return false;
-			}
-		})
-		.collect();
-	if uuid_filtered.is_empty() {
-		bail!("No UUID Tag found; Perhaps there's no filesystem in this partition, or the type of the filesystem can't be identified");
+	// WARNING! ACHTUNG!
+	// libblkid's cache does not cache loop devices.
+	// You will get an EINVAL if you try to use the cache to get FSUUID
+	// for filesystems on loop devices, so the following code will not
+	// work.
+	// let cache = blkid::cache::Cache::new()?;
+	// let dev = cache.get_dev(&fspath_str, GetDevFlags::FIND)?;
+	// let tags = dev.tags();
+	// let uuid_filtered: Vec<_> = tags
+	// 	.filter(|x| match x.typ() {
+	// 		TagType::Superblock(st) => {
+	// 			if st == SuperblockTag::Uuid {
+	// 				return true;
+	// 			}
+	// 			return false;
+	// 		}
+	// 		_ => {
+	// 			return false;
+	// 		}
+	// 	})
+	// 	.collect();
+
+	// We have to do the low-level probing.
+	// Wow, somehow the code is simpler.
+	let probe = blkid::prober::Prober::new_from_filename(&fspath)?;
+	let result = probe.do_safe_probe()?;
+	match result {
+		ProbeState::Success => {
+			let x = probe.get_values_map()?;
+			let uuid = x.get("UUID").context("No filesystem UUID found in the probe results; Perhaps there's no filesystem in this partition, or the type of the filesystem can't be identified")?;
+			return Ok(uuid.to_owned());
+		}
+		_ => {
+			bail!("Can not get necessary information of {}", &fspath.display());
+		}
 	}
-	if uuid_filtered.len() > 1 {
-		bail!("More than one UUID tag found for the filesystem, the path must point to a partition")
-	}
-	let uuid_tag = uuid_filtered.last().unwrap();
-	Uuid::parse_str(uuid_tag.value())
-		.context(format!("Failed to get UUID for filesystem {}", fspath_str))
 }
 
 #[cfg(test)]
