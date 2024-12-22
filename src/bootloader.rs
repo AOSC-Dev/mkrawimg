@@ -6,7 +6,7 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::debug;
 use serde::Deserialize;
 
@@ -129,10 +129,17 @@ impl ImageContext<'_> {
 		let rootfs = rootfs.as_ref();
 		let loopdev = loopdev.as_ref();
 		let bl_list = &self.device.bootloaders.as_ref().unwrap();
+		let device_spec_dir =
+			self.device.file_path.parent().context(
+				"Failed to reach the directory containing the device spec file",
+			)?;
 		for bl in *bl_list {
 			match bl {
 				BootloaderSpec::Script { name } => {
-					BootloaderSpec::run_script(rootfs, Path::new(name))?;
+					BootloaderSpec::run_script(
+						rootfs,
+						&device_spec_dir.join(name),
+					)?;
 				}
 				BootloaderSpec::FlashPartition { path, partition } => {
 					let partition = format!(
