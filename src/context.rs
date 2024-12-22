@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
 	cli::Compression,
-	device::{DeviceSpec, PartitionMapType},
+	device::{DeviceSpec, PartitionMapData, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
 	utils::{
@@ -76,9 +76,9 @@ impl ImageContext<'_> {
 	}
 
 	#[inline]
-	fn partition_image<P: AsRef<Path>>(&self, dev: P) -> Result<()> {
+	fn partition_image<P: AsRef<Path>>(&self, dev: P) -> Result<PartitionMapData> {
 		let disk_path = dev.as_ref();
-		match &self.device.partition_map {
+		let pm_data = match &self.device.partition_map {
 			PartitionMapType::GPT => self.partition_gpt(disk_path),
 			PartitionMapType::MBR => self.partition_mbr(disk_path),
 			// _ => {
@@ -93,7 +93,7 @@ impl ImageContext<'_> {
 		// For now we call partprobe to tell the kernel to reread the partition table.
 		// gptman::linux::reread_partition_table(&mut File::options().read(true).write(true).open(disk_path)?)?;
 		refresh_partition_table(dev)?;
-		Ok(())
+		Ok(pm_data)
 	}
 
 	fn mount_partitions<P: AsRef<Path>>(
@@ -438,7 +438,8 @@ impl ImageContext<'_> {
 		);
 
 		self.info("Creating partitions ...");
-		self.partition_image(&loop_dev_path)
+		let pmdata = self
+			.partition_image(&loop_dev_path)
 			.context("Failed to partition the image")?;
 
 		// Command::new("lsblk").spawn()?;
@@ -465,7 +466,7 @@ impl ImageContext<'_> {
 		self.info("Setting up bind mounts ...");
 		self.setup_chroot_mounts(&rootfs_path, &mut mountpoint_stack)?;
 
-		self.gen_spec_script(&loop_dev_path, &root_fsuuid, &root_fsuuid)?;
+		self.gen_spec_script(&loop_dev_path, &pmdata.root_partuuid, &root_fsuuid)?;
 
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
