@@ -138,9 +138,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	let mirror = mirror.as_ref();
 
 	// Display a progressbar
-	let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-	// Set up the scroll region
-	eprint!("\n\x1b7\x1b[0;{}r\x1b8\x1b[1A", term_geometry.rows - 1);
+	setup_scroll_region();
 	eprint!("\x1b7\x1b[{};0f\x1b[102m\x1b[0K\x1b[2K", term_geometry.rows);
 	eprint!(
 		"\x1b[30m[{}] Bootstrapping release ...",
@@ -169,9 +167,13 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 		.args([
 			"--include-files",
 			&format!(
-				"{}/recipes/{}.lst",
+				"{}/recipes/mainline/{}-common.lst",
 				AB_DIR,
-				variant.to_string().to_lowercase()
+				match &variant {
+					ImageVariant::Desktop => "kde".to_owned(),
+					_ => variant.to_string().to_lowercase(),
+				}
+				
 			),
 		]);
 
@@ -210,6 +212,14 @@ pub fn rsync_sysroot<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
 	debug!("Running command {:?}", command);
 	// return Ok(());
 	cmd_run_check_status(&mut command)
+}
+
+/// Set up the scroll region (for a progress bar on the bottom)
+#[inline]
+pub fn setup_scroll_region() {
+	let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
+	// Set up the scroll region
+	eprint!("\n\x1b7\x1b[0;{}r\x1b8\x1b[1A", term_geometry.rows - 1);
 }
 
 /// Recover the terminal
@@ -384,7 +394,17 @@ pub fn run_str_script_with_chroot(
 	};
 	// Let's assume all shells supports "-c SCRIPT".
 	// But I think it is better to pipe into the shell's stdin.
-	cmd.args([&root.as_ref().to_string_lossy(), shell, "-c", "--", script]);
+	// bash -c -- script $0 $1 ...
+	// The positional param after "-c script" is $0 of that script.
+	let script = format!("source /tmp/spec.sh ;{}", script);
+	cmd.args([
+		&root.as_ref().to_string_lossy(),
+		shell,
+		"-c",
+		"--",
+		&script,
+		"<tmp_script>",
+	]);
 	cmd_run_check_status(&mut cmd)
 }
 
@@ -401,10 +421,20 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 	};
 	// Let's assume all shells supports "-c SCRIPT".
 	// But I think it is better to pipe into the shell's stdin.
+	// bash -c -- script $0 $1 ...
+	// The positional param after "-c script" is $0 of that script.
+	// We are using 'source' to let the script being run to use the information we provided.
+	let full_script = format!(
+		"source /tmp/spec.sh ; source {}",
+		&script.as_ref().to_string_lossy()
+	);
 	cmd.args([
 		&root.as_ref().to_string_lossy(),
 		shell,
+		"-c",
 		"--",
+		&full_script,
+		// Set $0 to the path of the script
 		&script.as_ref().to_string_lossy(),
 	]);
 	cmd_run_check_status(&mut cmd).context("Failed to run script with chroot")

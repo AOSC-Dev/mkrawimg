@@ -1,6 +1,8 @@
 use std::{
+	collections::HashMap,
 	ffi::OsStr,
 	fs::{self, File},
+	io::Write,
 	path::{Path, PathBuf},
 };
 
@@ -20,7 +22,7 @@ use uuid::Uuid;
 
 const FORBIDDEN_CHARS: &[char] = &['\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&'];
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, strum::Display)]
 #[serde(rename_all = "lowercase")]
 // It is strange to see MBR as Mbr, GPT as Gpt.
 #[allow(clippy::upper_case_acronyms)]
@@ -88,6 +90,16 @@ pub struct DeviceSpec {
 	pub of_compatible: Option<String>,
 	/// List of BSP packages to be installed.
 	pub bsp_packages: Vec<String>,
+	/// Whether the device boots without an initrd image.
+	/// Useful for embedded systems (most of devices targeted by this
+	/// project are embedded systems, aren't they).
+	///
+	/// If set to true, the following thing(s) will happen:
+	/// - Generated fstab will use PARTUUID instead of filesystem UUID,
+	/// since the kernel does not support using `UUID=` to specify root
+	/// device if initrd is not being used.
+	#[serde(default)]
+	pub initrdless: bool,
 	/// The partition map used for the image.
 	pub partition_map: PartitionMapType,
 	/// Number of the partitions.
@@ -115,12 +127,16 @@ pub struct ImageVariantSizes {
 
 #[allow(dead_code)]
 pub struct PartitionMapData {
-	pub root_partnum: usize,
-	pub root_partuuid: String,
-	pub efi_partnum: Option<usize>,
-	pub efi_partuuid: Option<usize>,
-	pub boot_partnum: Option<usize>,
-	pub boot_partuuid: Option<usize>,
+	pub uuid: String,
+	/// Data for each partition
+	pub data: HashMap<u32, PartitionData>,
+}
+
+#[derive(Clone)]
+pub struct PartitionData {
+	pub num: u32,
+	pub part_uuid: String,
+	pub fs_uuid: Option<String>,
 }
 
 impl Default for ImageVariantSizes {
@@ -232,6 +248,9 @@ impl DeviceSpec {
 					bail!("More than one root partition defined");
 				}
 				root_part = Some(partition);
+				if partition.mountpoint != Some("/".to_owned()) {
+					bail!("Sorry, but for now root partition must have a mountpoint '/'.")
+				}
 			}
 			if let Some(l) = &partition.label {
 				if self.partition_map == PartitionMapType::MBR {
@@ -316,15 +335,13 @@ impl ImageContext<'_> {
 			img.display(),
 			sector_size
 		);
-		let mut root_partnum = 0;
-		let mut root_partuuid = Uuid::nil();
 		let rand_uuid = Uuid::new_v4();
 		// NOTE UUIDs in GPT are like structs, they are "Mixed-endian."
 		// The first three components are little-endian, and the last two are big-endian.
 		// e.g. 01020304-0506-0708-090A-0B0C0D0E0F10 must be written as:
-		//            LE          LE
-		//       vvvvvvvvvvv vvvvvvvvvvv
-		// 0000: 04 03 02 01 08 07 06 05
+		//            LE       LE    LE
+		//       vvvvvvvvvvv vvvvv vvvvv
+		// 0000: 04 03 02 01 06 05 08 07
 		// 0008: 09 0A 0B 0C 0D 0E 0F 10
 		//       ^^^^^^^^^^^^^^^^^^^^^^^
 		//              Big Endian
@@ -332,6 +349,7 @@ impl ImageContext<'_> {
 		let disk_guid = rand_uuid.to_bytes_le();
 		let mut new_table = GPT::new_from(&mut fd, sector_size, disk_guid)
 			.context("Unable to create a new partition table")?;
+		let mut parts_data: HashMap<u32, PartitionData> = HashMap::new();
 		assert!(new_table.header.disk_guid == disk_guid);
 		// 1MB aligned
 		new_table.align = 1048576 / sector_size;
@@ -340,7 +358,7 @@ impl ImageContext<'_> {
 			img.display()
 		));
 		let size_in_lba = new_table.header.last_usable_lba;
-		self.info(format!("UUID: {}", rand_uuid));
+		self.info(format!("UUID: {}", &rand_uuid));
 		self.info(format!("Total LBA: {}", size_in_lba));
 		let num_partitions = self.device.num_partitions;
 		for partition in &self.device.partitions {
@@ -402,10 +420,14 @@ impl ImageContext<'_> {
 				partition_name: partition_name.into(),
 			};
 			new_table[partition.num] = part;
-			if partition.usage == PartitionUsage::Rootfs {
-				root_partnum = partition.num;
-				root_partuuid = rand_part_uuid;
-			}
+			parts_data.insert(
+				partition.num,
+				PartitionData {
+					num: partition.num,
+					part_uuid: rand_part_uuid.to_string(),
+					fs_uuid: None,
+				},
+			);
 		}
 		self.info("Writing changes ...");
 		// Protective MBR is written for compatibility.
@@ -415,12 +437,8 @@ impl ImageContext<'_> {
 		new_table.write_into(&mut fd)?;
 		fd.sync_all()?;
 		let pm_data = PartitionMapData {
-			root_partnum: root_partnum as usize,
-			root_partuuid: root_partuuid.to_string(),
-			efi_partnum: None,
-			efi_partuuid: None,
-			boot_partnum: None,
-			boot_partuuid: None,
+			uuid: rand_uuid.to_string(),
+			data: parts_data,
 		};
 		Ok(pm_data)
 	}
@@ -432,15 +450,16 @@ impl ImageContext<'_> {
 				.unwrap_or(512);
 		let random_id: u32 = rand::random();
 		let disk_signature = random_id.to_le_bytes();
+		let disk_signature_str = format!("{:08x}", random_id);
 		let mut new_table = MBR::new_from(&mut fd, sector_size, disk_signature)?;
+		let mut parts_data: HashMap<u32, PartitionData> = HashMap::new();
 		self.info(format!("Created a MBR table on {}:", img.display()));
+		// Human readable format
 		self.info(format!(
 			"Disk signature: {:X}-{:X}",
 			(random_id >> 16) as u16,
 			(random_id & 0xffff) as u16
 		));
-		let mut root_partnum = 0;
-		let mut root_partuuid = String::new();
 		for partition in &self.device.partitions {
 			if partition.num == 0 {
 				bail!("Partition number must start from 1.");
@@ -502,47 +521,184 @@ impl ImageContext<'_> {
 				sectors,
 			};
 			new_table[idx] = part;
-			if partition.usage == PartitionUsage::Rootfs {
-				root_partnum = partition.num;
-				root_partuuid = format!("{:08x}-{:02x}", random_id, root_partnum);
-			}
+			parts_data.insert(
+				partition.num,
+				PartitionData {
+					num: partition.num,
+					part_uuid: format!("{}-{:02x}", &disk_signature_str, idx),
+					fs_uuid: None,
+				},
+			);
 		}
 		self.info("Writing the partition table ...");
 		new_table.write_into(&mut fd)?;
 		fd.sync_all()?;
 		let pm_data = PartitionMapData {
-			root_partnum: root_partnum as usize,
-			root_partuuid,
-			efi_partnum: None,
-			efi_partuuid: None,
-			boot_partnum: None,
-			boot_partuuid: None,
+			uuid: disk_signature_str,
+			data: parts_data,
 		};
 		Ok(pm_data)
 	}
-	pub fn gen_spec_script(
+
+	pub fn write_spec_script(
 		&self,
 		loopdev: &dyn AsRef<Path>,
-		partuuid: &dyn AsRef<str>,
-		fsuuid: &dyn AsRef<str>,
-	) -> Result<String> {
-		let script = format!(
-			r#"
-DEVICE_ID='{0}'
+		rootpart: &dyn AsRef<Path>,
+		container: &dyn AsRef<Path>,
+		pm_data: &PartitionMapData,
+	) -> Result<()> {
+		let mut script = format!(
+			r#"DEVICE_ID='{0}'
 DEVICE_COMPATIBLE='{1}'
 LOOPDEV='{2}'
 NUM_PARTITIONS='{3}'
-ROOT_PARTUUID='{4}'
-ROOT_FSUUID='{5}'
+ROOTPART='{4}'
+DISKLABEL='{5}'
+DISKUUID='{6}'
 "#,
 			self.device.id,
 			&self.device.of_compatible.clone().unwrap_or("".to_string()),
 			loopdev.as_ref().to_string_lossy(),
 			self.device.num_partitions,
-			partuuid.as_ref(),
-			fsuuid.as_ref()
+			rootpart.as_ref().to_string_lossy(),
+			&self.device.partition_map.to_string().to_lowercase(),
+			&pm_data.uuid,
 		);
-		Ok(script)
+		for part in &self.device.partitions {
+			let part_data = pm_data.data.get(&part.num).context(format!(
+				"Unable to get partition data for partition {}",
+				part.num
+			))?;
+			assert_eq!(part.num, part_data.num);
+			script += &format!(
+				"PART{0}_PARTUUID='{1}'\n",
+				part_data.num, part_data.part_uuid,
+			);
+			if part.usage == PartitionUsage::Rootfs {
+				script +=
+					&format!("ROOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+			} else if part.usage == PartitionUsage::Boot {
+				script +=
+					&format!("BOOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+			}
+			if part.part_type == PartitionType::EFI {
+				script +=
+					&format!("EFI_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+			}
+			// We might not have a filesystem UUID under some circumstances
+			if let Some(fsuuid) = &part_data.fs_uuid {
+				script +=
+					&format!("PART{0}_FSUUID='{1}'\n", part_data.num, &fsuuid);
+				if part.usage == PartitionUsage::Rootfs {
+					script += &format!(
+						"ROOT_FSUUID=\"$PART{0}_FSUUID\"\n",
+						part.num
+					);
+				} else if part.usage == PartitionUsage::Boot {
+					script += &format!(
+						"BOOT_FSUUID=\"$PART{0}_FSUUID\"\n",
+						part.num
+					);
+				}
+				if part.part_type == PartitionType::EFI {
+					script += &format!(
+						"EFI_FSUUID=\"$PART{0}_FSUUID\"\n",
+						part.num
+					);
+				}
+			}
+		}
+		debug!("Script content: \n{}", &script);
+		let path = container.as_ref().join("tmp/spec.sh");
+		let mut fd = File::options()
+			.create(true)
+			.write(true)
+			.truncate(true)
+			.open(&path)?;
+		fd.write_all(script.as_bytes())?;
+		fd.flush()?;
+		fd.sync_all()?;
+		Ok(())
+	}
+
+	pub fn generate_fstab(
+		&self,
+		pm_data: &PartitionMapData,
+		container: &dyn AsRef<Path>,
+	) -> Result<()> {
+		self.info("Generating /etc/fstab ...");
+		let mut content = String::from("\n# ---- Auto generated by mkrawimg ----\n");
+		for partition in &self.device.partitions {
+			if let Some(mountpoint) = &partition.mountpoint {
+				let part_data =
+					pm_data.data.get(&partition.num).context(format!(
+						"Unable to get partition data for partition {}",
+						partition.num
+					))?;
+				let src = if self.device.initrdless {
+					format!("PARTUUID=\"{0}\"", &part_data.part_uuid)
+				} else {
+					format!("UUID=\"{0}\"", &part_data.fs_uuid.as_ref().context("Partition with a mountpoint must have a valid filesystem")?)
+				};
+				// dst = mountpoint
+				// `genfstab(8)` uses the options field in `/proc/mounts`, which is the expanded result from `defaults`.
+				let options = "defaults";
+				let fsck_passno = if partition.usage == PartitionUsage::Rootfs {
+					1
+				} else {
+					2
+				};
+				let entry = format!(
+					"{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n",
+					&src,
+					&mountpoint,
+					&partition.filesystem.get_os_fstype()?,
+					options,
+					0,
+					fsck_passno
+				);
+				content += &entry;
+			} else {
+				// We can not generate fstab entry for partitions without a mountpoint
+				continue;
+			}
+		}
+		let fstab_path = container.as_ref().join("etc/fstab");
+		let mut fstab_fd = File::options()
+			.write(true)
+			.truncate(false)
+			.append(true)
+			.open(&fstab_path)?;
+		fstab_fd.write_all(&content.as_bytes())?;
+		fstab_fd.flush()?;
+		fstab_fd.sync_all()?;
+		Ok(())
+	}
+
+	pub fn set_hostname(&self, container: &dyn AsRef<Path>) -> Result<()> {
+		self.info("Setting up hostname ...");
+		let rand_id: u32 = rand::random();
+		let hostname = format!("{:?}-{}-{:08x}",
+			&self.device.distro,
+			&self.device.id,
+			rand_id
+		);
+		self.info(format!("Hostname: {}", &hostname));
+		let hostname_path = container.as_ref().join("etc/hostname");
+		let mut hostname_fd = File::options().truncate(true).write(true).create(true).open(hostname_path)?;
+		hostname_fd.write_all(&hostname.as_bytes())?;
+		hostname_fd.flush()?;
+		hostname_fd.sync_all()?;
+		let hosts_entries = format!(
+			"\n127.0.0.1\t{0}\n::1\t{0}\n",
+			hostname
+		);
+		let hosts_fd = container.as_ref().join("etc/hosts");
+		let mut hosts_fd = File::options().append(true).write(true).create(true).open(hosts_fd)?;
+		hosts_fd.write_all(&hosts_entries.as_bytes())?;
+		hosts_fd.flush()?;
+		hosts_fd.sync_all()?;
+		Ok(())
 	}
 }
 

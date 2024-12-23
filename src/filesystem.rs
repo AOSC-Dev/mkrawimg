@@ -1,11 +1,12 @@
-use anyhow::{anyhow, bail, Ok, Result};
+use anyhow::{anyhow, bail, Context, Ok, Result};
 use serde::{Deserialize, Serialize};
 use std::{path::Path, process::Command};
 
 use crate::{
 	context::ImageContext,
+	device::PartitionMapData,
 	partition::PartitionUsage,
-	utils::cmd_run_check_status,
+	utils::{cmd_run_check_status, get_fsuuid},
 };
 
 /// Speifies which filesystem to be formatted to a partition.
@@ -110,7 +111,11 @@ impl FilesystemType {
 }
 
 impl ImageContext<'_> {
-	pub fn format_partitions(&self, loopdev: &dyn AsRef<Path>) -> Result<()> {
+	pub fn format_partitions(
+		&self,
+		loopdev: &dyn AsRef<Path>,
+		pm_data: &mut PartitionMapData,
+	) -> Result<()> {
 		let loopdev = loopdev.as_ref();
 		for partition in &self.device.partitions {
 			if partition.filesystem == FilesystemType::Null {
@@ -133,6 +138,12 @@ impl ImageContext<'_> {
 			let part_path = format!("{}p{}", loopdev.to_string_lossy(), num);
 			let label = &partition.label;
 			filesystem.format(&part_path, label.to_owned())?;
+			let fsuuid = get_fsuuid(&part_path)?;
+			let part_data = pm_data.data.get_mut(&num).context(format!(
+				"Unable to get partition data for partition {}",
+				num
+			))?;
+			part_data.fs_uuid = Some(fsuuid);
 		}
 		Ok(())
 	}

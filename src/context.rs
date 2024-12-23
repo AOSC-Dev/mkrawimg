@@ -13,8 +13,7 @@ use crate::{
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
 	utils::{
-		add_user, create_sparse_file, get_fsuuid, refresh_partition_table, restore_term,
-		rsync_sysroot, run_script_with_chroot, set_locale, sync_filesystem,
+		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot, run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem
 	},
 };
 use anyhow::{bail, Context, Result};
@@ -210,7 +209,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P) -> Result<()> {
+	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P, pm_data: &PartitionMapData) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		self.info("Setting up the user and locale ...");
 		add_user(
@@ -222,7 +221,9 @@ impl ImageContext<'_> {
 			None,
 		)?;
 		set_locale(rootdir, "en_US.UTF-8")?;
+		self.set_hostname(&rootdir)?;
 
+		self.generate_fstab(pm_data, &rootdir)?;
 		let postinst_script_dir =
 			self.device.file_path.parent().context(
 				"Unable to find the directory containing the device spec",
@@ -360,9 +361,7 @@ impl ImageContext<'_> {
 			eprint!("\x1b8");
 		};
 
-		let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-		// Set up the scroll region
-		eprint!("\n\x1b7\x1b[0;{}r\x1b8\x1b[1A", term_geometry.rows - 1);
+		setup_scroll_region();
 
 		// Various paths being used
 		// The path which used specifically for this task
@@ -445,19 +444,16 @@ impl ImageContext<'_> {
 		);
 
 		self.info("Creating partitions ...");
-		let pmdata = self
+		let mut pm_data = self
 			.partition_image(&loop_dev_path)
 			.context("Failed to partition the image")?;
 
 		// Command::new("lsblk").spawn()?;
 
 		self.info("Formating partitions ...");
-		self.format_partitions(&loop_dev_path)?;
+		self.format_partitions(&loop_dev_path, &mut pm_data)?;
 		let rootpart_path =
 			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
-		debug!("Retreiving fileystem UUID of the root filesystem ...");
-		let root_fsuuid = get_fsuuid(&rootpart_path)?;
-
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
 		let rootfs_path = mountdir_base
@@ -474,7 +470,7 @@ impl ImageContext<'_> {
 		self.info("Setting up bind mounts ...");
 		self.setup_chroot_mounts(&rootfs_path, &mut mountpoint_stack)?;
 
-		self.gen_spec_script(&loop_dev_path, &pmdata.root_partuuid, &root_fsuuid)?;
+		self.write_spec_script(&loop_dev_path, &rootpart_path, &rootfs_path, &pm_data)?;
 
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
@@ -489,7 +485,7 @@ impl ImageContext<'_> {
 
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
-		self.postinst_step(&rootfs_path)?;
+		self.postinst_step(&rootfs_path, &pm_data)?;
 
 		self.apply_bootloaders(&rootfs_path, &loop_dev_path)?;
 

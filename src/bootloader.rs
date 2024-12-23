@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
-use log::debug;
+use log::info;
 use serde::Deserialize;
 
 use crate::{context::ImageContext, utils::run_script_with_chroot};
@@ -66,7 +66,7 @@ impl BootloaderSpec {
 	{
 		let container = container.as_ref();
 		let script = script.as_ref();
-		debug!("Copying the bootloader script ...");
+		info!("Running script {}", script.display());
 		let filename = script.file_name().unwrap();
 		let dst = container.join("tmp").join(filename);
 		std::fs::copy(script, dst)?;
