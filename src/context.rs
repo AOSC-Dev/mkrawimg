@@ -249,8 +249,6 @@ impl ImageContext<'_> {
 			std::fs::copy(&postinst_script_path, dst_path)
 				.context("Failed to copy the post installation script")?;
 			run_script_with_chroot(rootdir, &Path::new("/tmp").join(filename), None)?;
-			std::fs::remove_file(dst_path)
-				.context("Failed to remove the post installation script")?;
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
@@ -361,6 +359,7 @@ impl ImageContext<'_> {
 			eprint!("\x1b8");
 		};
 
+		// Set up the scroll region for progressbar.
 		setup_scroll_region();
 
 		// Various paths being used
@@ -398,12 +397,14 @@ impl ImageContext<'_> {
 			bail!("Unable to find a root filesystem");
 		}
 		let root_dev_num = root_dev_num.unwrap();
+
+		// Begin to produce the image
 		self.info(format!(
 			"Image:\n\t\"{}\" ({}) - {}",
 			&self.device.name, &self.device.id, &self.variant
 		));
-
 		self.info(format!("Output file:\n\t{}", &self.filename));
+
 		self.info("Initializing image ...");
 		draw_progressbar("Initializing image");
 		// Create workdir_base and all its parents.
@@ -448,29 +449,29 @@ impl ImageContext<'_> {
 			.partition_image(&loop_dev_path)
 			.context("Failed to partition the image")?;
 
-		// Command::new("lsblk").spawn()?;
-
 		self.info("Formating partitions ...");
 		self.format_partitions(&loop_dev_path, &mut pm_data)?;
-		let rootpart_path =
+
+		// The path to the block device which contains the root filesystem.
+		let rootpart_dev =
 			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
-		let rootfs_path = mountdir_base
+		let rootfs_mount = mountdir_base
 			.join(format!("p{}", root_dev_num))
 			.canonicalize()
 			.context("Failed to canonicalize the path of root filesystem mountpoint")?;
-		debug!("Root filesystem path: {:?}", rootfs_path);
+		debug!("Root filesystem mountpoint: {:?}", rootfs_mount);
 
 		self.info("Installing system distribution ...");
 		draw_progressbar("Installing base distribution");
-		rsync_sysroot(&self.base_dist, &rootfs_path)?;
-		self.mount_partitions_in_root(&loop_dev_path, &rootfs_path, &mut mountpoint_stack)?;
+		rsync_sysroot(&self.base_dist, &rootfs_mount)?;
+		self.mount_partitions_in_root(&loop_dev_path, &rootfs_mount, &mut mountpoint_stack)?;
 
 		self.info("Setting up bind mounts ...");
-		self.setup_chroot_mounts(&rootfs_path, &mut mountpoint_stack)?;
+		self.setup_chroot_mounts(&rootfs_mount, &mut mountpoint_stack)?;
 
-		self.write_spec_script(&loop_dev_path, &rootpart_path, &rootfs_path, &pm_data)?;
+		self.write_spec_script(&loop_dev_path, &rootpart_dev, &rootfs_mount, &pm_data)?;
 
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
@@ -481,13 +482,13 @@ impl ImageContext<'_> {
 			.iter()
 			.map(String::as_str)
 			.collect::<Vec<&str>>();
-		self.install_packages(pkgs.as_slice(), &rootfs_path)?;
+		self.install_packages(pkgs.as_slice(), &rootfs_mount)?;
 
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
-		self.postinst_step(&rootfs_path, &pm_data)?;
+		self.postinst_step(&rootfs_mount, &pm_data)?;
 
-		self.apply_bootloaders(&rootfs_path, &loop_dev_path)?;
+		self.apply_bootloaders(&rootfs_mount, &loop_dev_path)?;
 
 		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
