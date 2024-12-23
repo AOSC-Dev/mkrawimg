@@ -16,7 +16,10 @@ mod tests;
 mod utils;
 
 use core::time;
-use std::{path::{Path, PathBuf}, time::Instant};
+use std::{
+	path::{Path, PathBuf},
+	time::Instant,
+};
 
 #[cfg(not(debug_assertions))]
 use anyhow::bail;
@@ -288,7 +291,11 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				j.execute(count, len)?;
 			}
 			let duration = start.elapsed();
-			info!("Done! {} image(s) in {:.03} seconds.", len, duration.as_secs_f32());
+			info!(
+				"Done! {} image(s) in {:.03} seconds.",
+				len,
+				duration.as_secs_f32()
+			);
 			info!("Output directory: {}", &cmdline.outdir.display());
 			info!("Program finished successfully. Exiting.");
 		}

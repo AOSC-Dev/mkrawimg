@@ -6,7 +6,11 @@ use std::path::Path;
 use anyhow::Result;
 use serde::Deserialize;
 
-use crate::{context::ImageContext, device::DeviceArch, utils::{run_str_script_with_chroot, setup_scroll_region}};
+use crate::{
+	context::ImageContext,
+	device::DeviceArch,
+	utils::{run_str_script_with_chroot, setup_scroll_region},
+};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Default, Debug, Deserialize, PartialEq, Eq)]

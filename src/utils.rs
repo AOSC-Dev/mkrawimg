@@ -173,7 +173,6 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 					ImageVariant::Desktop => "kde".to_owned(),
 					_ => variant.to_string().to_lowercase(),
 				}
-				
 			),
 		]);
 

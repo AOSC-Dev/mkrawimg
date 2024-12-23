@@ -665,7 +665,6 @@ DISKUUID='{6}'
 		}
 		let fstab_path = container.as_ref().join("etc/fstab");
 		let mut fstab_fd = File::options()
-			
 			.truncate(false)
 			.append(true)
 			.open(&fstab_path)?;
@@ -678,21 +677,21 @@ DISKUUID='{6}'
 	pub fn set_hostname(&self, container: &dyn AsRef<Path>) -> Result<()> {
 		self.info("Setting up hostname ...");
 		let rand_id: u32 = rand::random();
-		let hostname = format!("{:?}-{}-{:08x}",
-			&self.device.distro,
-			&self.device.id,
-			rand_id
+		let hostname = format!(
+			"{:?}-{}-{:08x}",
+			&self.device.distro, &self.device.id, rand_id
 		);
 		self.info(format!("Hostname: {}", &hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
-		let mut hostname_fd = File::options().truncate(true).write(true).create(true).open(hostname_path)?;
+		let mut hostname_fd = File::options()
+			.truncate(true)
+			.write(true)
+			.create(true)
+			.open(hostname_path)?;
 		hostname_fd.write_all(hostname.as_bytes())?;
 		hostname_fd.flush()?;
 		hostname_fd.sync_all()?;
-		let hosts_entries = format!(
-			"\n127.0.0.1\t{0}\n::1\t{0}\n",
-			hostname
-		);
+		let hosts_entries = format!("\n127.0.0.1\t{0}\n::1\t{0}\n", hostname);
 		let hosts_fd = container.as_ref().join("etc/hosts");
 		let mut hosts_fd = File::options().append(true).create(true).open(hosts_fd)?;
 		hosts_fd.write_all(hosts_entries.as_bytes())?;

@@ -13,7 +13,8 @@ use crate::{
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
 	utils::{
-		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot, run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem
+		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
+		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
 	},
 };
 use anyhow::{bail, Context, Result};
@@ -209,7 +210,11 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P, pm_data: &PartitionMapData) -> Result<()> {
+	fn postinst_step<P: AsRef<Path>>(
+		&self,
+		rootdir: P,
+		pm_data: &PartitionMapData,
+	) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		self.info("Setting up the user and locale ...");
 		add_user(
@@ -453,8 +458,7 @@ impl ImageContext<'_> {
 		self.format_partitions(&loop_dev_path, &mut pm_data)?;
 
 		// The path to the block device which contains the root filesystem.
-		let rootpart_dev =
-			format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		let rootpart_dev = format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
 		let rootfs_mount = mountdir_base
@@ -466,7 +470,11 @@ impl ImageContext<'_> {
 		self.info("Installing system distribution ...");
 		draw_progressbar("Installing base distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_mount)?;
-		self.mount_partitions_in_root(&loop_dev_path, &rootfs_mount, &mut mountpoint_stack)?;
+		self.mount_partitions_in_root(
+			&loop_dev_path,
+			&rootfs_mount,
+			&mut mountpoint_stack,
+		)?;
 
 		self.info("Setting up bind mounts ...");
 		self.setup_chroot_mounts(&rootfs_mount, &mut mountpoint_stack)?;
