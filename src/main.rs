@@ -16,7 +16,7 @@ mod tests;
 mod utils;
 
 use core::time;
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, time::Instant};
 
 #[cfg(not(debug_assertions))]
 use anyhow::bail;
@@ -219,7 +219,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 						&device.arch.to_string().to_lowercase()
 					));
 					let filename = format!(
-						"aosc-os_{0}_rawimg_{1}_{2}_{3}{4}.img{5}",
+						"aosc-os_{0}_rawimg_{1}_{2}_{3}{4}_{5}.img{6}",
 						&variant.to_string().to_lowercase(),
 						&device.vendor.clone(),
 						&device.id.clone(),
@@ -230,6 +230,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 							}
 							_ => "".to_string(),
 						},
+						&device.arch.to_string().to_ascii_lowercase(),
 						compress.get_extension()
 					);
 					queue.push(ImageContext {
@@ -280,11 +281,16 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			info!("Begin to generate images ...");
 			std::thread::sleep(time::Duration::from_secs(2));
 			info!("Executing the queue ...");
+			let start = Instant::now();
 			for j in queue {
 				info!("{} images pending.", len - count);
 				count += 1;
 				j.execute(count, len)?;
 			}
+			let duration = start.elapsed();
+			info!("Done! {} image(s) in {:.03} seconds.", len, duration.as_secs_f32());
+			info!("Output directory: {}", &cmdline.outdir.display());
+			info!("Program finished successfully. Exiting.");
 		}
 		cli::Action::Check { .. } => {
 			info!("Checking validity of the registry ...");
