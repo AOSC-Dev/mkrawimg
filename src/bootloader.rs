@@ -138,7 +138,7 @@ impl ImageContext<'_> {
 				BootloaderSpec::Script { name } => {
 					BootloaderSpec::run_script(
 						rootfs,
-						&device_spec_dir.join(name),
+						device_spec_dir.join(name),
 					)?;
 				}
 				BootloaderSpec::FlashPartition { path, partition } => {

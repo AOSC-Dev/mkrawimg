@@ -171,7 +171,7 @@ impl DeviceRegistry {
 			}
 		}
 		if errs.is_empty() {
-			return Ok(());
+			Ok(())
 		} else {
 			for e in errs {
 				let mut s = String::new();

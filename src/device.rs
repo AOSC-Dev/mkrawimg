@@ -96,8 +96,8 @@ pub struct DeviceSpec {
 	///
 	/// If set to true, the following thing(s) will happen:
 	/// - Generated fstab will use PARTUUID instead of filesystem UUID,
-	/// since the kernel does not support using `UUID=` to specify root
-	/// device if initrd is not being used.
+	///   since the kernel does not support using `UUID=` to specify root
+	///   device if initrd is not being used.
 	#[serde(default)]
 	pub initrdless: bool,
 	/// The partition map used for the image.
@@ -170,7 +170,7 @@ impl DeviceSpec {
 	pub fn check(&self) -> Result<()> {
 		let mut strs_to_chk = vec![&self.id, &self.vendor];
 		if let Some(aliases) = &self.aliases {
-			aliases.iter().for_each(|s| strs_to_chk.push(&s));
+			aliases.iter().for_each(|s| strs_to_chk.push(s));
 		}
 		if let Some(c) = &self.of_compatible {
 			strs_to_chk.push(c)
@@ -665,11 +665,11 @@ DISKUUID='{6}'
 		}
 		let fstab_path = container.as_ref().join("etc/fstab");
 		let mut fstab_fd = File::options()
-			.write(true)
+			
 			.truncate(false)
 			.append(true)
 			.open(&fstab_path)?;
-		fstab_fd.write_all(&content.as_bytes())?;
+		fstab_fd.write_all(content.as_bytes())?;
 		fstab_fd.flush()?;
 		fstab_fd.sync_all()?;
 		Ok(())
@@ -686,7 +686,7 @@ DISKUUID='{6}'
 		self.info(format!("Hostname: {}", &hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
 		let mut hostname_fd = File::options().truncate(true).write(true).create(true).open(hostname_path)?;
-		hostname_fd.write_all(&hostname.as_bytes())?;
+		hostname_fd.write_all(hostname.as_bytes())?;
 		hostname_fd.flush()?;
 		hostname_fd.sync_all()?;
 		let hosts_entries = format!(
@@ -694,8 +694,8 @@ DISKUUID='{6}'
 			hostname
 		);
 		let hosts_fd = container.as_ref().join("etc/hosts");
-		let mut hosts_fd = File::options().append(true).write(true).create(true).open(hosts_fd)?;
-		hosts_fd.write_all(&hosts_entries.as_bytes())?;
+		let mut hosts_fd = File::options().append(true).create(true).open(hosts_fd)?;
+		hosts_fd.write_all(hosts_entries.as_bytes())?;
 		hosts_fd.flush()?;
 		hosts_fd.sync_all()?;
 		Ok(())

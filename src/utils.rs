@@ -467,13 +467,13 @@ pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<String> {
 
 	// We have to do the low-level probing.
 	// Wow, somehow the code is simpler.
-	let probe = blkid::prober::Prober::new_from_filename(&fspath)?;
+	let probe = blkid::prober::Prober::new_from_filename(fspath)?;
 	let result = probe.do_safe_probe()?;
 	match result {
 		ProbeState::Success => {
 			let x = probe.get_values_map()?;
 			let uuid = x.get("UUID").context("No filesystem UUID found in the probe results; Perhaps there's no filesystem in this partition, or the type of the filesystem can't be identified")?;
-			return Ok(uuid.to_owned());
+			Ok(uuid.to_owned())
 		}
 		_ => {
 			bail!("Can not get necessary information of {}", &fspath.display());
