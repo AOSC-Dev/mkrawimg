@@ -23,7 +23,6 @@ extern "C" {
 	pub fn syncfs(fd: c_int) -> c_int;
 }
 
-#[cfg(not(debug_assertions))]
 const AB_DIR: &str = "/usr/share/aoscbootstrap";
 const DEFAULT_GROUPS: &[&str] = &["audio", "video", "cdrom", "plugdev", "tty", "wheel"];
 const LOCALCONF_PATH: &str = "etc/locale.conf";
@@ -76,56 +75,6 @@ pub fn refresh_partition_table<P: AsRef<Path>>(dev: P) -> Result<()> {
 	Ok(())
 }
 
-#[cfg(debug_assertions)]
-#[allow(dead_code)]
-#[allow(unused_variables)]
-pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
-	variant: &ImageVariant,
-	path: P,
-	arch: DeviceArch,
-	mirror: S,
-) -> Result<()> {
-	use std::fs;
-
-	const DIRS: &[&str] = &[
-		"bin",
-		"etc",
-		"lib",
-		"usr",
-		"usr/bin",
-		"usr/lib",
-		"usr/share",
-		"var",
-	];
-	const OS_RELEASE: &str = r#"PRETTY_NAME="AOSC OS (12.0.0)"
-NAME="AOSC OS"
-VERSION_ID="12.0.0"
-VERSION="12.0.0 (localhost)"
-BUILD_ID="20241128"
-ID=aosc
-ANSI_COLOR="1;36"
-HOME_URL="https://aosc.io/"
-SUPPORT_URL="https://github.com/AOSC-Dev/aosc-os-abbs"
-BUG_REPORT_URL="https://github.com/AOSC-Dev/aosc-os-abbs/issues""#;
-
-	let path = path.as_ref();
-	info!(
-		"Bootstrapping {} system distribution to {} ...",
-		variant,
-		path.display()
-	);
-	for d in DIRS {
-		let p = path.join(d);
-		debug!("Creating directory {}", p.display());
-		fs::create_dir_all(p)?;
-	}
-	let mut fd = File::create(path.join("etc/os-release"))?;
-	fd.write_all(OS_RELEASE.as_bytes())?;
-	info!("Successfully bootstrapped {} distribution.", variant);
-	Ok(())
-}
-
-#[cfg(not(debug_assertions))]
 /// Run aoscbootstrap to generate a system release
 pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	variant: &ImageVariant,
@@ -133,13 +82,12 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	arch: DeviceArch,
 	mirror: S,
 ) -> Result<()> {
-	use termsize::Size;
 	let path = path.as_ref();
 	let mirror = mirror.as_ref();
 
 	// Display a progressbar
 	setup_scroll_region();
-	eprint!("\x1b7\x1b[{};0f\x1b[102m\x1b[0K\x1b[2K", term_geometry.rows);
+
 	eprint!(
 		"\x1b[30m[{}] Bootstrapping release ...",
 		variant.to_string().to_lowercase()

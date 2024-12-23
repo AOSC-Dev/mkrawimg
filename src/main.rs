@@ -21,12 +21,10 @@ use std::{
 	time::Instant,
 };
 
-#[cfg(not(debug_assertions))]
 use anyhow::bail;
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use clap::Parser;
-#[cfg(not(debug_assertions))]
 use cli::Action;
 use cli::{Cmdline, RootFsType};
 use context::{ImageContext, ImageContextQueue};
@@ -58,7 +56,6 @@ fn main() -> Result<()> {
 
 	// Parse the command line
 	let cmdline = Cmdline::try_parse()?;
-	#[cfg(not(debug_assertions))]
 	match &cmdline.action {
 		Action::Build { .. } | Action::BuildAll { .. } => {
 			if unsafe { utils::geteuid() } != 0 {
