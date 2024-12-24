@@ -1,4 +1,4 @@
-use crate::device::DeviceSpec;
+use crate::{cli::ListFormat, device::DeviceSpec};
 use anyhow::{anyhow, bail, Context, Result};
 use log::{debug, error, info};
 use owo_colors::OwoColorize;
@@ -184,5 +184,84 @@ impl DeviceRegistry {
 			}
 			bail!("Sanity check failed. Please check the output for details.")
 		}
+	}
+
+	fn list_pretty(devices: Vec<DeviceSpec>) {
+		// The following variables are used for formatting.
+		// I prefer formatting this table by hand, since it does not bring
+		// unnecessary dependencies.
+		let idx_width = (devices.len().ilog10()) as usize + 1;
+		println!(
+			"{0} {1} {2} Vendor\n{3} Description\n{3} Aliases",
+			format!("{}#", " ".repeat(idx_width - 1)),
+			format!("{:<32}", "Device ID"),
+			format!("{:<12}", "Arch."),
+			" ".repeat(idx_width)
+		);
+		println!("{}", "=".repeat(80));
+		let mut idx = 1;
+		for device in devices.iter() {
+			//  # Device ID                        Arch.       Vendor
+			//    Description
+			//    Aliases
+			// ================================================================================
+			//  1 pc-efi                           amd64       generic
+			//    Standard PC (UEFI)
+			//    None
+			//  2 rpi-5b                           arm64       raspberrypi
+			//    Raspberrt Pi 5 Model B
+			//    pi5b, pi5
+			println!(
+				"{0} {1} {2} {3}\n{4} {5}\n{4} {6}",
+				format!("{}", idx),
+				format!("{:<32}", &device.id),
+				format!("{:<12}", &device.arch.to_string().to_lowercase()),
+				&device.vendor,
+				" ".repeat(idx_width),
+				&device.name,
+				match &device.aliases {
+					Some(aliases) => {
+						if aliases.is_empty() {
+							"None".to_owned()
+						} else {
+							aliases.join(", ")
+						}
+					}
+					_ => "None".to_owned(),
+				}
+			);
+			idx += 1;
+			if idx > devices.len() {
+				println!("\n Done listing devices.");
+			} else {
+				println!("{}", "-".repeat(80));
+			}
+		}
+	}
+
+	fn list_simple(devices: Vec<DeviceSpec>) {
+		for device in devices {
+			println!(
+				"{:<31}\t{:<15}\t{}",
+				&device.id,
+				&device.arch.to_string().to_lowercase(),
+				&device.name
+			);
+		}
+	}
+
+	pub fn list_devices(self, style: ListFormat) -> Result<()> {
+		let mut devices = self.devices;
+		devices.sort_by_key(|f| f.id.clone());
+		info!("The list is being printned out to stdout.");
+		match style {
+			ListFormat::Pretty => {
+				DeviceRegistry::list_pretty(devices);
+			}
+			ListFormat::Simple => {
+				DeviceRegistry::list_simple(devices);
+			} // _ => todo!(),
+		}
+		Ok(())
 	}
 }

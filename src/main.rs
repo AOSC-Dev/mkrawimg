@@ -145,6 +145,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			None
 		}
 		cli::Action::Check { device } => device.as_ref().map(|d| d.to_owned()),
+		cli::Action::List { .. } => None,
 	};
 	let registry = if let Some(device_str) = &device_str {
 		let try_path = Path::new(&device_str);
@@ -299,6 +300,10 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 		cli::Action::Check { .. } => {
 			info!("Checking validity of the registry ...");
 			registry.check_validity()?;
+			return Ok(());
+		}
+		cli::Action::List { format } => {
+			registry.list_devices(format)?;
 			return Ok(());
 		}
 	};

@@ -19,6 +19,13 @@ pub enum Compression {
 	None,
 }
 
+#[derive(Clone, ValueEnum)]
+pub enum ListFormat {
+	Pretty,
+	Simple,
+	// Json,
+}
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cmdline {
@@ -117,6 +124,11 @@ pub enum Action {
 		/// - Path to the `device.toml` itself.
 		#[arg(verbatim_doc_comment)]
 		device: Option<String>,
+	},
+	/// List all available devices
+	List {
+		#[arg(short, long, default_value = "pretty")]
+		format: ListFormat,
 	},
 }
 
