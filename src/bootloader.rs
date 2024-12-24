@@ -1,5 +1,13 @@
-//! `mod bootloader`
-//! This module implements simple logic to apply bootloader images to the target raw media image.
+//! Module handling the application of the bootloader images.
+//!
+//! You can perform one or more of the following actions to apply bootloaders:
+//!
+//! - Run a script (within the same directory as the `device.toml` file)
+//! - Apply (“flash”) a file to the specific partition of the target image
+//! - Apply (“flash”) a file to the specific offset of the target image
+//!
+//! For details please go to [`BootloaderSpec`].
+//!
 use std::{
 	fs::File,
 	io::{copy, BufReader, Seek},
@@ -12,49 +20,103 @@ use serde::Deserialize;
 
 use crate::{context::ImageContext, utils::run_script_with_chroot};
 
-/// The [`BootloaderSpec`] specifies how to apply a bootloader image (file) to the target image.
+/// Specifies how to apply a bootloader image (file) to the target image.
 ///
-/// You can write a file (inside the filesystem) to a specific partition, or to a specific location,
+/// You can write a file (inside the target filesystem) to a specific partition, or to a specific location (offset) of the target image,
 /// or use a script to finish this step.
 ///
-/// In `device.toml`, this is an optional list. The list will be executed sequencially.
+/// Multiple entries are allowed, thus you can flash multiple files and run different scripts. The list will be executed sequencially.
 ///
-/// Example
-/// -------
+/// Examples
+/// --------
+///
+/// In your `device.toml`, add one or more of the `[[bootloader]]` list items. Examples of `[[bootloader]]` entries are shown below:
+///
+/// ### Run a script within the same directory as `device.toml`
 ///
 /// ```toml
 /// [[bootloader]]
 /// type = script
-/// # the script name, must be within the same directory as device.toml
+/// # Path to the script file.
+/// # This file must reside in the same directory as the device.toml file.
 /// name = apply-bootloader.sh
+/// ```
+/// ### Flash a bootloader image to the specific partition of the target image
 ///
+/// ```toml
 /// [[bootloader]]
 /// type = flash_partition
-/// # The path must be a valid file inside the target root filesystem
-/// # symbolic links are allowed
+/// # Path to the bootloader image within the target root filesystem (symbolic links allowed).
 /// path = "/usr/lib/u-boot/rk64/rk3588-orange-pi-5-max-idbloader.img"
+/// # The index of the target partition
 /// partition = 1
+/// ```
 ///
+/// ```toml
 /// [[bootloader]]
 /// type = flash_partition
-/// # The path must be a valid file inside the target root filesystem
-/// # symbolic links are allowed
+/// # Path to the bootloader image within the target root filesystem (symbolic links allowed).
 /// path = "/usr/lib/u-boot/rk64/rk3588-orange-pi-5-max.itb"
 /// partition = 2
+/// ```
 ///
+/// ### Flash a bootloader image to the specific location of the target image
+///
+/// ```toml
 /// [[bootloader]]
 /// type = flash_offset
 /// path = "/path/to/bootlodaer/image"
+/// # Offset from the start of the target image in bytes.
 /// offset = 0x400
 /// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum BootloaderSpec {
-	/// Run the script within the same directory as `device.toml`
+	/// Run the script within the same directory as `device.toml`.
+	///
+	/// The script will be copied to a temporary location in the target filesystem.
+	/// The script has access to all of the exported partition information.
+	///
+	/// ```toml
+	/// [[bootloader]]
+	/// type = script
+	/// # Path to the script file.
+	/// # This file must reside in the same directory as the device.toml file.
+	/// name = apply-bootloader.sh
+	/// ```
 	Script { name: String },
-	/// Flash a file (inside the target image) to a specific partition
+	/// Flash a bootloader image to the specific partition of the target image.
+	///
+	/// The path must be (or point to) a regular file within the target root filesystem.
+	///
+	/// ```toml
+	/// [[bootloader]]
+	/// type = flash_partition
+	/// # Path to the bootloader image within the target root filesystem (symbolic links allowed).
+	/// path = "/usr/lib/u-boot/rk64/rk3588-orange-pi-5-max-idbloader.img"
+	/// # The index of the target partition
+	/// partition = 1
+	/// ```
 	FlashPartition { path: PathBuf, partition: u64 },
-	/// Flash a file (inside the target image) to a specfifc location at the image
+	/// Flash a bootloader image to the specific location of the target image.
+	///
+	/// The path must be (or point to) a regular file within the target root filesystem.
+	///
+	/// <div class="warning">
+	///
+	/// - Always make sure the image will not overlap existing partitions and filesystems.
+	/// - If your bootloader image is too large (e.g. exceeds 960KiB), you must adjust the starting position of the first partition (since the default starting sector is 2048 (1 MiB)).
+	/// - Therefore it is advised to create dedicated partitions reserved for bootloaders and flash them to their specific partition.
+	///
+	/// </div>
+	///
+	/// ```toml
+	/// [[bootloader]]
+	/// type = flash_offset
+	/// path = "/path/to/bootlodaer/image"
+	/// # Offset from the start of the target image in bytes.
+	/// offset = 0x400
+	/// ```
 	FlashOffset { path: PathBuf, offset: u64 },
 }
 

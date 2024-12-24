@@ -1,3 +1,108 @@
+//! Generate ready-to-flash raw images with AOSC OS for various devices
+//!
+//! Requirements
+//! ------------
+//!
+//! The following dependencies are required to build and run this tool:
+//!
+//! ### Library Dependencies (Linked Libraries)
+//!
+//! - `libblkid`: for gathering information for block devices, primarily their unique identifiers.
+//! - `liblzma`: for compressing the image file with LZMA2 (xz).
+//! - `libzstd`: for compressing the image file with ZStandard.
+//!
+//! ### Runtime Dependencies (External commands)
+//!
+//! The following executables must be available in the system at runtime:
+//!
+//! - `rsync`: For copying the system distribution.
+//! - `mkfs.ext4`, `mkfs.xfs`, `mkfs.btrfs`, `mkfs.vfat`: For making filesystems on partitions.
+//! - `chroot`: For entering the chroot environment of the target container to perform post-installation steps.
+//! - `useradd` from shadow: For adding user to the target container.
+//! - `chpasswd` from shadow: For changing user passwords.
+//! - `partprobe`: For updating the in-kernel partition table cache.
+//!
+//! ### `binfmt_misc` support and respective binary interpreters
+//!
+//! If you intend to build images for devices with a different architecture than your host machine, you must check if your host system supports `binfmt_misc`:
+//!
+//! ```shell
+//! $ cat /proc/sys/fs/binfmt_misc/status
+//! enabled
+//! ```
+//!
+//! <div class="warning">
+//!
+//! Enabling `binfmt_misc` support is beyond the scope of this documentation.
+//!
+//! </div>
+//!
+//! With `binfmt_misc` support enabled, you will have to install `qemu-user-static` (or equivalent packages for your distribution) to allow your system to execute binary executables for the target device's architecture.
+//!
+//! Building
+//! --------
+//!
+//! Simply run:
+//!
+//! ```shell
+//! cargo build --release
+//! ```
+//! Usage
+//! -----
+//!
+//! ### List Available Devices
+//!
+//! ```shell
+//! $ ./target/release/mkrawimg list --format FORMAT
+//! ```
+//!
+//! While `FORMAT` can be one of the following:
+//!
+//! - `pretty`: table format which contains basic information.
+//! - `simple`: simple column-based format splitted by tab character (`'\t'`).
+//!
+//! ### Build images for one specific device
+//!
+//! <div class="warning">
+//! Building images requires the root privileges.
+//! </div>
+//!
+//! ```shell
+//! # ./target/release/mkrawimg build --variants VARIANTS DEVICE
+//! ```
+//!
+//! - `VARIANTS`: distribution variants, can be one or more of the `base`, `desktop`, `server`.
+//!   If not specified, all variants will be built.
+//! - `DEVICE`: A string identifying the target device, can be one of the following:
+//!   - Device ID (defined in `device.toml`).
+//!   - Device alias (defined in `device.toml`).
+//!   - The path to the `device.toml` file.
+//!
+//! ### Build Images for All Devices (in the registry)
+//!
+//! ```shell
+//! # ./target/release/mkrawimg build-all --variants VARIANTS
+//! ```
+//!
+//! For the advanced usage, please go to [`Cmdline`].
+//!
+//! Adding a new device
+//! -------------------
+//!
+//! To add support for a new device, please go to [`DeviceSpec`].
+//!
+//! Contributing
+//! ------------
+//!
+//! ### Device addition
+//!
+//! While CI performs automated checks on submitted device specification files, these checks are not exhaustive. Therefore, we require you to build an image using your specification file to ensure its validity.
+//!
+//! License
+//! -------
+//!
+//! This repository is licensed under the GNU GPL v3 license.
+//!
 // #![allow(warnings)]
 // Why do you guys hate tabs?
 // Look, I use tabs for indentation in my code.
@@ -6,14 +111,29 @@
 #![allow(clippy::tabs_in_doc_comments)]
 mod bootloader;
 mod cli;
+/// Module handling the actual generation jobs.
+#[doc(hidden)]
 mod context;
+/// Module handling various procedures for a specific device, and the device specification itself.
 mod device;
+/// Module handling the filesystems.
+#[doc(hidden)]
 mod filesystem;
+/// Module handling the partitions.
+#[doc(hidden)]
 mod partition;
+/// Module handling the package installation.
+#[doc(hidden)]
 mod pm;
 mod registry;
+#[doc(hidden)]
 mod tests;
+/// Module containing various utility functions.
+#[doc(hidden)]
 mod utils;
+
+pub use cli::Cmdline;
+pub use device::DeviceSpec;
 
 use core::time;
 use std::{
@@ -26,7 +146,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use clap::Parser;
 use cli::Action;
-use cli::{Cmdline, RootFsType};
+use cli::RootFsType;
 use context::{ImageContext, ImageContextQueue};
 use filesystem::FilesystemType;
 use log::{debug, error, info, warn};
@@ -34,12 +154,14 @@ use owo_colors::colored::*;
 use registry::DeviceRegistry;
 use utils::{bootstrap_distribution, check_binfmt, restore_term};
 
+#[doc(hidden)]
 enum BuildMode {
 	BuildOne,
 	BuildAll,
 	None, // check
 }
 
+#[doc(hidden)]
 const DISTRO_REGISTRY_DIR: &str = match option_env!("DISTRO_REGISTRY_DIR") {
 	Some(x) => x,
 	_ => "/usr/share/aosc-mkrawimg/devices",
@@ -95,6 +217,7 @@ fn main() -> Result<()> {
 	Ok(())
 }
 
+#[doc(hidden)]
 fn try_main(cmdline: Cmdline) -> Result<()> {
 	// Say hi
 	info!("Welcome to mkrawimg!");

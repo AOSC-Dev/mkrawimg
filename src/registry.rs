@@ -1,3 +1,6 @@
+//! Module handling the registry of the device specifications.
+//!
+//! See [`DeviceRegistry`] for details.
 use crate::{cli::ListFormat, device::DeviceSpec};
 use anyhow::{anyhow, bail, Context, Result};
 use log::{debug, error, info};
@@ -9,10 +12,43 @@ use std::{
 };
 use walkdir::WalkDir;
 
-/// Device Registry.
+/// Device Registry
+/// ===============
+///
+/// A device registry is a directory tree that contains one or more [device specification file]s, and optionally device-related scripts. The registry is read by this tool to find the desired device to build images.
+///
+/// The registry is organised by vendor and device ID, in a tree-like structure:
+///
+/// ```plain
+/// devices/ # the top-level directory
+///   vendor1/ # the vendor-level directory, e.g. "raspberrypi"
+///      device1/ # the device-level directory, assume the device ID is 'device1'
+///        apply-bootloader.sh    # One of the bootloader scripts for 'device1'
+///        apply-bootloader2.sh   # Another bootloader script for 'device1'
+///        device.toml            # The device specification file for 'device1'
+///        postinst.bash          # The post installation script for 'device1'
+///     device2/                  # devices can have no bootloader scripts and/or no post installation scripts
+///       apply-bootloader.sh     # The bootloader script for 'device2'
+///       device.toml             # The device specification file for 'device2'
+///     device3/                  # 'device3' does not have a bootloader script and a post installation script
+///       device.toml             # The device specification file for 'device3'
+///   vendor2/
+///     device4/
+///       device.toml
+///       script.sh               # Badly named bootloader script but is acceptable
+/// ```
+///
+/// - The top-level directory contains vendor-level directories.
+/// - The vendor-level directories contain device-level directories.
+/// - The device-level directory is the directory containing the [device specification file]. It can also contain other device-related scripts, like post-installation script, and scripts that set up bootloaders.
+/// - The vendor name and the device ID must contain only ASCII-characters, and must not contain white spaces and symbols other than hyphens and underscores. Hyphen (`-`) is preferred than underscores (`_`).
+/// - Although the rules above are not enforced by the tool, you are encouraged to follow this practice. Usage outside the rules above are allowed if one has to.
+/// - To save space, symbolic links of scripts are allowed.
+///
+/// [device specification file]: crate::device::DeviceSpec
 pub struct DeviceRegistry {
 	// We need to keep a list of registered devices (deserialized from
-	// all or some of device.tomls from the specified registry directory.
+	// all or some of device.tomls from the specified registry directory).
 	// We also need a lookup mechanism which makes it easier to select
 	// devices.
 	// To avoid unnecessary cloning (we are going to need them all, or
