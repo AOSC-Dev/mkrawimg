@@ -168,6 +168,8 @@ impl DeviceSpec {
 	}
 
 	pub fn check(&self) -> Result<()> {
+		let path: &Path = self.file_path.as_ref();
+		let dirname = path.parent().context("Failed to get the directory containing the device spec file")?;
 		let mut strs_to_chk = vec![&self.id, &self.vendor];
 		if let Some(aliases) = &self.aliases {
 			aliases.iter().for_each(|s| strs_to_chk.push(s));
@@ -265,6 +267,19 @@ impl DeviceSpec {
 		}
 		if root_part.is_none() {
 			bail!("No root partition defined");
+		}
+		if let Some(bootloaders) = &self.bootloaders {
+			for bl in bootloaders {
+				match bl {
+					BootloaderSpec::Script { name } => {
+						let script_path = dirname.join(name);
+						if !script_path.is_file() {
+							bail!("Script '{}' not found within the same directory as the device.toml", &name);
+						}
+					}
+					_ => (),
+				}
+			}
 		}
 		Ok(())
 	}
