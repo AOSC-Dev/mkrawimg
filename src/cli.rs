@@ -108,13 +108,15 @@ pub enum ListFormat {
 /// Global options
 /// ==============
 ///
-/// - `-D`, `--debug`: Enables the debug output.
+/// - `--debug`: Enables the debug output. Does not have a short option.
 /// - `-r`, `--registry`: Overrides the path to the [device registry].
-/// - `-W`, `--workdir`: Overrides the working directory path. The default path is `./work`.
+/// - `-D`, `--workdir`: Overrides the working directory path. The default path is `./work`.
 /// - `-O`, `--outdir`: Overrides the output directory path. The default path is `./out`.
-/// - `-M`, `--mirror`: Overrides the package repository mirror for package downloads. The default mirror is the AOSC OS upstream mirror.
+/// - `-m`, `--mirror`: Overrides the package repository mirror for package downloads. The default mirror is the AOSC OS upstream mirror.
 /// - `-U`, `--user`: Overrides the username of the built-in user. The default username is `aosc`.
 /// - `-P`, `--password`: Overrides the password of the built-in user. The default password is `anthon`.
+/// - `-c`, `--cleanup`: Clean up the sketch directories after building, to free some space.
+/// - `-C`, `--cleanup-bootstrap`: Clean up the bootstrapped system distributions after building, to free some space.
 ///
 /// Actions
 /// =======
@@ -287,6 +289,12 @@ pub struct Cmdline {
 	/// Specify password for the OS
 	#[arg(short = 'P', long, default_value = "anthon")]
 	pub password: String,
+	/// Clean up the sketch directory after building
+	#[arg(short = 'c', long, action = clap::ArgAction::SetTrue)]
+	pub cleanup: bool,
+	/// Clean up the bootstrapped system distributions after building
+	#[arg(short = 'C', long, action = clap::ArgAction::SetTrue)]
+	pub cleanup_bootstrap: bool,
 	/// The action to take.
 	#[command(subcommand)]
 	pub action: Action,

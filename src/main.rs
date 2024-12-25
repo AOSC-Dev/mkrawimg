@@ -137,7 +137,7 @@ pub use device::DeviceSpec;
 
 use core::time;
 use std::{
-	env::var, path::{Path, PathBuf}, time::Instant
+	env::var, fs::{remove_dir, remove_dir_all}, path::{Path, PathBuf}, time::Instant
 };
 
 use anyhow::bail;
@@ -416,6 +416,35 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				len,
 				duration.as_secs_f32()
 			);
+			if cmdline.cleanup {
+				info!("Cleaning up the sketch directories ...");
+				let sketch_dir = cmdline.workdir.join("sketches");
+				match remove_dir_all(&sketch_dir) {
+					Ok(_) => (),
+					Err(e) => {
+						warn!("Unable to remove the directory {}: {}\nYou have to remove them manually.", &sketch_dir.display(), e);
+					}
+				}
+			}
+			if cmdline.cleanup_bootstrap {
+				info!("Cleaning up the bootstrapped system distributions ...");
+				let bootstrap_dir = cmdline.workdir.join("bootstrap");
+				match remove_dir_all(&bootstrap_dir) {
+					Ok(_) => (),
+					Err(e) => {
+						warn!("Unable to remove the directory {}: {}\nYou have to remove them manually.", &bootstrap_dir.display(), e);
+					}
+				}
+			}
+			if cmdline.cleanup && cmdline.cleanup_bootstrap {
+				info!("Removing the working directory ...");
+				match remove_dir(&cmdline.workdir) {
+					Ok(_) => (),
+					Err(e) => {
+						warn!("Unable to remove the working directory {}: {}\nYou have to remove them manually.", &cmdline.workdir.display(), e);
+					}
+				}
+			}
 			let uid = var("SUDO_UID").ok();
 			let gid = var("SUDO_GID").ok();
 			if uid.is_some() || gid.is_some() {
