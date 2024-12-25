@@ -1,16 +1,9 @@
 use std::{
-	collections::HashMap,
-	ffi::OsStr,
-	fs::{self, File},
-	io::Write,
-	path::{Path, PathBuf},
+	collections::HashMap, ffi::OsStr, fs::{self, File}, io::Write, path::{Path, PathBuf}
 };
 
 use crate::{
-	bootloader::BootloaderSpec,
-	context::{ImageContext, ImageVariant},
-	partition::{PartitionSpec, PartitionType, PartitionUsage},
-	pm::Distro,
+	bootloader::BootloaderSpec, context::{ImageContext, ImageVariant}, filesystem::FilesystemType, partition::{PartitionSpec, PartitionType, PartitionUsage}, pm::Distro
 };
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
@@ -281,8 +274,22 @@ impl DeviceSpec {
 						if !script_path.is_file() {
 							bail!("Script '{}' not found within the same directory as the device.toml", &name);
 						}
+					},
+					BootloaderSpec::FlashPartition { path: _, partition } => {
+						if let Some(p) = self.partitions.get(*partition as usize) {
+							if p.filesystem != FilesystemType::Null {
+								bail!("A bootloader tries to write to partition {} which already contains an active filesystem.", p.num);
+							}
+						} else {
+							bail!("Partition {} specified by a bootloader is not found.", partition);
+						}
+					},
+					BootloaderSpec::FlashOffset { path: _, offset } => {
+						// Anything must start from at least LBA 34.
+						if *offset < 512 * 34 {
+							bail!("A bootloader tries to overlap the partition table. It must start from at least 0x4400 (17408), or LBA 34.");
+						}
 					}
-					_ => (),
 				}
 			}
 		}
