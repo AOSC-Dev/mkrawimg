@@ -2,6 +2,7 @@ use std::{
 	ffi::{c_int, c_void, CString},
 	fs::File,
 	io::{Seek, Write},
+	os::unix::fs::chown,
 	path::{Path, PathBuf},
 	process::{Command, Stdio},
 };
@@ -11,6 +12,7 @@ use blkid::prober::ProbeState;
 use libc::{close, open, O_NONBLOCK, O_RDONLY};
 use log::{debug, info};
 use termsize::Size;
+use walkdir::WalkDir;
 
 use crate::{context::ImageVariant, device::DeviceArch};
 
@@ -426,6 +428,25 @@ pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<String> {
 			bail!("Can not get necessary information of {}", &fspath.display());
 		}
 	}
+}
+
+/// Change the ownership of a filesystem object, recursively.
+pub fn return_ownership_recursive(
+	path: &dyn AsRef<Path>,
+	to_user: Option<u32>,
+	to_group: Option<u32>,
+) -> Result<()> {
+	let walker = WalkDir::new(path.as_ref());
+	for entry in walker {
+		let entry = entry.context("Loop or unexpected object detected")?;
+		chown(entry.path(), to_user, to_group).context(format!(
+			"Failed to change the ownership of '{}' to {:?}:{:?}",
+			entry.path().display(),
+			to_user,
+			to_group
+		))?;
+	}
+	Ok(())
 }
 
 #[cfg(test)]

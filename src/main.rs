@@ -137,8 +137,7 @@ pub use device::DeviceSpec;
 
 use core::time;
 use std::{
-	path::{Path, PathBuf},
-	time::Instant,
+	env::var, path::{Path, PathBuf}, time::Instant
 };
 
 use anyhow::bail;
@@ -152,7 +151,7 @@ use filesystem::FilesystemType;
 use log::{debug, error, info, warn};
 use owo_colors::colored::*;
 use registry::DeviceRegistry;
-use utils::{bootstrap_distribution, check_binfmt, restore_term};
+use utils::{bootstrap_distribution, check_binfmt, restore_term, return_ownership_recursive};
 
 #[doc(hidden)]
 enum BuildMode {
@@ -417,6 +416,22 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				len,
 				duration.as_secs_f32()
 			);
+			let uid = var("SUDO_UID").ok();
+			let gid = var("SUDO_GID").ok();
+			if uid.is_some() || gid.is_some() {
+				let uid = if let Some(uid) = uid {
+					Some(uid.parse::<u32>().context(format!("Failed to parse $SUDO_UID '{}' into integer", &uid))?)
+				} else {
+					None
+				};
+				let gid = if let Some(gid) = gid {
+					Some(gid.parse::<u32>().context(format!("Failed to parse $SUDO_GID '{}' into integer", &gid))?)
+				} else {
+					None
+				};
+				info!("This tool is running with sudo, fixing ownership of the output directory ...");
+				return_ownership_recursive(&cmdline.outdir, uid, gid)?;
+			}
 			info!("Output directory: {}", &cmdline.outdir.display());
 			info!("Program finished successfully. Exiting.");
 		}
