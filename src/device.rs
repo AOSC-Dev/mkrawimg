@@ -233,6 +233,11 @@ impl DeviceSpec {
 		let mut root_part = None;
 		let mut last_partition_num = 0;
 		for partition in &self.partitions {
+			if let Some(start) = partition.start_sector {
+				if start <= 33 {
+					bail!("Starting sector of partition {} overlaps the partition table itself.", partition.num);
+				}
+			}
 			if partition.part_type == PartitionType::Swap {
 				bail!("Swap partitions are not allowed on raw images.");
 			}
