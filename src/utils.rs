@@ -90,6 +90,8 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	// Display a progressbar
 	setup_scroll_region();
 
+	let size = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
+	eprint!("\x1b7\x1b[{};0f\x1b[42m\x1b[0K\x1b[2K", size.rows);
 	eprint!(
 		"\x1b[30m[{}] Bootstrapping release ...",
 		variant.to_string().to_lowercase()
