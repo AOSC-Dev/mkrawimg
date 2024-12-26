@@ -109,7 +109,7 @@ impl ImageContext<'_> {
 		let loop_dev = loop_dev.as_ref();
 		debug!("Base directory for mountpoints: {}", mntdir_base.display());
 		for partition in &self.device.partitions {
-			if partition.filesystem == FilesystemType::Null {
+			if partition.filesystem == FilesystemType::None {
 				continue;
 			}
 			let src_dir = format!("{}p{}", loop_dev.to_string_lossy(), partition.num);
@@ -138,7 +138,7 @@ impl ImageContext<'_> {
 		let loop_dev = loop_dev.as_ref();
 		let rootdir = rootdir.as_ref();
 		for partition in &self.device.partitions {
-			if partition.filesystem == FilesystemType::Null {
+			if partition.filesystem == FilesystemType::None {
 				continue;
 			}
 			if partition.usage == PartitionUsage::Rootfs {

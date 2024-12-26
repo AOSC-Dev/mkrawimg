@@ -24,7 +24,7 @@ pub enum FilesystemType {
 	/// FAT32.
 	Fat32,
 	/// Not to be formatted.
-	Null,
+	None,
 }
 
 impl FilesystemType {
@@ -59,7 +59,7 @@ impl FilesystemType {
 			FilesystemType::Xfs => Ok("xfs"),
 			FilesystemType::Btrfs => Ok("btrfs"),
 			FilesystemType::Fat16 | FilesystemType::Fat32 => Ok("vfat"),
-			FilesystemType::Null => {
+			FilesystemType::None => {
 				Err(anyhow!("It is instructed to not being formatted"))
 			}
 		}
@@ -70,7 +70,7 @@ impl FilesystemType {
 		path: &dyn AsRef<Path>,
 		label: Option<String>,
 	) -> Result<Command> {
-		if self == &Self::Null {
+		if self == &Self::None {
 			bail!("Instructed to not being formatted");
 		}
 		let path = path.as_ref();
@@ -118,7 +118,7 @@ impl ImageContext<'_> {
 	) -> Result<()> {
 		let loopdev = loopdev.as_ref();
 		for partition in &self.device.partitions {
-			if partition.filesystem == FilesystemType::Null {
+			if partition.filesystem == FilesystemType::None {
 				continue;
 			}
 			let filesystem = if partition.usage == PartitionUsage::Rootfs {

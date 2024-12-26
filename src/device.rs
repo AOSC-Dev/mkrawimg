@@ -1,9 +1,17 @@
 use std::{
-	collections::HashMap, ffi::OsStr, fs::{self, File}, io::Write, path::{Path, PathBuf}
+	collections::HashMap,
+	ffi::OsStr,
+	fs::{self, File},
+	io::Write,
+	path::{Path, PathBuf},
 };
 
 use crate::{
-	bootloader::BootloaderSpec, context::{ImageContext, ImageVariant}, filesystem::FilesystemType, partition::{PartitionSpec, PartitionType, PartitionUsage}, pm::Distro
+	bootloader::BootloaderSpec,
+	context::{ImageContext, ImageVariant},
+	filesystem::FilesystemType,
+	partition::{PartitionSpec, PartitionType, PartitionUsage},
+	pm::Distro,
 };
 use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
@@ -13,13 +21,16 @@ use mbrman::{MBRPartitionEntry, CHS, MBR};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-const FORBIDDEN_CHARS: &[char] = &['\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&'];
+const FORBIDDEN_CHARS: &[char] = &[
+	'\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&', ' ', '\t',
+];
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, strum::Display)]
 #[serde(rename_all = "lowercase")]
 // It is strange to see MBR as Mbr, GPT as Gpt.
 #[allow(clippy::upper_case_acronyms)]
 pub enum PartitionMapType {
+	#[serde(alias = "dos")]
 	MBR,
 	GPT,
 }
@@ -46,31 +57,262 @@ pub enum DeviceArch {
 	/// 64-Bit MIPS Release 6
 	Mips64r6el,
 }
-/// Represents a device specification file device.toml.
+
+/// Device Specification
+/// ====================
+///
+/// A device specification represents a specific model of device in the form of a specification file named `device.toml`. Most information defined in the device specification are used to build OS images for this device.
+///
+/// It describes various aspects of the device:
+///
+/// - How many partition the image of this device may contain, their sizes, filesystems.
+/// - How many BSP packages for this device should be installed in addition to the standard system distribution.
+/// - Whether the image of the device must have bootloaders applied, and how to apply them.
+/// - Basic information, like its ID, vendor and model name.
+///
+/// It must be placed under the device-level directory of the [device registry].
+///
+/// Syntax
+/// ======
+///
+/// The device specification uses the TOML format.
+///
+/// Fields
+/// ======
+///
+/// `id` -  Device ID
+/// ---------------
+///
+/// A string which identifies a specific device. Must be unique across the entire registry. It can be a combination of letters (`a-z`, `A-Z`), digits (`0-9`), hyphens (`-`) and underscores (`_`).
+///
+/// ```toml
+/// id = "rpi-9"
+/// ```
+///
+/// `aliases` -  Device Aliases
+/// -------------------------
+///
+/// A list of strings that can also identify this specific device. Must be unique across the entire registry. Aliases follows the same naming restrictions.
+///
+/// ```toml
+/// alias = ["pi9", "pi9b"]
+/// ```
+///
+/// `vendor` -  Device Vendor
+/// -----------------------
+///
+/// A string that identifies the vendor of the device. Should be as same as the vendor-level directory name.
+///
+/// ```toml
+/// vendor = "raspberrypi"
+/// ```
+///
+/// `arch` -  Device CPU Architecture
+/// -------------------------------
+///
+/// A string defines the architecture of the CPU used by this device.
+///
+/// Possible values:
+///
+/// - `"amd64"`: x86-64 CPU.
+/// - `"arm64"`: ARM AArch64 CPU.
+/// - `"loongarch64"`: LoongArch64 CPU.
+/// - `"riscv64"`: 64-Bit RISC-V CPU.
+/// - `"ppc64el"`: IBM POWER 8 and up, little-endian.
+/// - `"loongson3"`: MIPS Loongson-III CPU.
+///
+/// ```toml
+/// arch = "arm64"
+/// ```
+///
+/// `name` -  Name of the device
+/// --------------------------
+///
+/// The human-friendly name of the device.
+///
+/// ```toml
+/// name = "Raspberry Pi 9 Model B"
+/// ```
+///
+/// `of_compatible` -  `compatible` Property in the Device Tree
+/// ---------------------------------------------------------
+///
+/// The most relevant string in the `/compatible` property defined in the root of the device tree file. Typically it is the first value of the entry.
+///
+/// If this device does not have a device tree, or the device tree file does not have `compatible` property defined in its root, this field can be skipped.
+///
+/// For example, suppose the device tree file of the “Raspberry Pi 9 Model B” has the following definition:
+///
+/// ```dts
+/// / {
+///	compatible = "raspberrypi,9-model-b", "brcm,bcm9999";
+/// }
+/// ```
+///
+/// The value used here would be `"raspberrypi,9-model-b"`.
+/// ```toml
+/// of_compatible = "raspberrypi,9-model-b"
+/// ```
+///
+/// `bsp_packages` -  List of mandatory BSP packages
+/// ----------------------------------------------
+///
+/// A list of package names to be installed in addition to the standard system distribution.
+///
+/// Installation of BSP packages will be performed after all mountable partitions in this device are mounted, so that scripts in the packages can access these partitions.
+///
+/// <div class="warning">
+/// The package names can not be checked for validity. Please make sure all of the names are correct.
+/// </div>
+///
+/// ```toml
+/// bsp_packages = ["linux+kernel+rpi64+rpi9", "rpi-firmware-boot"]
+/// ```
+///
+/// `initrdless` -  Booting without Init Ramdisk
+/// ------------------------------------------
+///
+/// A boolean value describes whether the device boots without an init ramdisk. Typically this is useful for a variety of embedded devices.
+///
+/// Default is `false`, can be skipped. If set to `true`, then the following thing will happen:
+///
+/// - The filesystem table `/etc/fstab` will be generated using the unique identifiers of the partition (`PARTUUID`), rather than unique identifiers of the filesystem (`UUID`).
+///
+/// ```toml
+/// initrdless = true
+/// ```
+///
+/// `[sizes]` -  Image sizes for each variant
+/// ---------------------------------------
+///
+/// An object describes the image size for each distribution variant: `base`, `desktop` and `server`.
+///
+/// <div class="warning">
+/// Make sure the sizes defined are large enough to contain the OS and installed BSP packages.
+/// </div>
+///
+/// The images will be automatically expanded to the size of the medium during the first boot.
+///
+/// ```toml
+/// [sizes]
+/// base = 6144
+/// desktop = 22500
+/// server = 6144
+/// ```
+///
+/// `partition_map` -  Partition Table Type
+/// -------------------------------------
+///
+/// Type of the partition table used in the OS image.
+///
+/// Possible values:
+///
+/// - `mbr` or `dos`: MBR Partition Table. Can have up to 4 partitions.
+/// - `gpt`: GUID Partition Table. Can have up to 128 partitions. Most bootloaders supports GPT.
+///
+/// ```toml
+/// partition_map = "gpt"
+/// ```
+///
+/// `num_partitions` -  Number of the partitions
+/// ------------------------------------------
+///
+/// A positive integer. Defines the number of the partitions in the OS image.
+///
+/// ```toml
+/// num_partitions: 2
+/// ```
+///
+/// `[[partition]]` -  List of Partitions
+/// -----------------------------------
+///
+/// A list of objects describes the partitions in the OS image. Refer to the [`PartitionSpec`] for details.
+///
+/// ```toml
+/// [[partition]]
+/// no = 1
+/// type = "esp"
+/// usage = "boot"
+/// size = 614400
+/// mountpoint = "/efi"
+/// filesystem = "fat32"
+/// label = "Boot"
+/// fs_label = "Boot"
+///
+/// [[partition]]
+/// no = 2
+/// type = "linux"
+/// size = 0
+/// mountpoint = "/"
+/// filesystem = "ext4"
+/// usage = "rootfs"
+/// fs_label = "AOSC OS"
+/// ```
+///
+/// `[[bootloader]]`: List of Bootloaders to be embedded (Optional)
+/// ---------------------------------------------------------------
+///
+/// A list of objects describes bootloaders to be applied onto the OS image. Refer to [`BootloaderSpec`] for details.
+///
+/// ```toml
+/// [[bootloader]]
+/// type = "flash_partition"
+/// path = "/usr/lib/u-boot/rk3588-orange-pi-4-ultra-idbloader.img"
+/// partition = 1
+///
+/// [[bootloader]]
+/// type = "flash_partition"
+/// path = "/usr/lib/u-boot/rk3588-orange-pi-4-ultra-u-boot.itb"
+/// partition = 2
+///
+/// [[bootloader]]
+/// type = "script"
+/// name = "finish-bootloaders.sh"
+/// ```
+///
+/// Examples
+/// ========
+///
+/// Please refer to the device registry directory in the project for examples.
+///
+/// [device registry]: crate::registry::DeviceRegistry
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct DeviceSpec {
-	/// Unique ID of the device. Can be any ASCII characters except
-	/// spaces, glob characters and /.
+	/// Unique ID of the device. Can be any combination of letters, digits, hyphen `"-"` and underscore (`"_"`).
 	pub id: String,
-	/// Aliases to identify the exact device.
+	/// Optional aliases to identify the exact device. Can be any combination of letters, digits, hyphen `"-"` and underscore (`"_"`).
 	pub aliases: Option<Vec<String>>,
 	/// The distribution wich will be installed on this device.
+	///
+	/// Possible values:
+	///
+	/// - `aosc`: AOSC OS.
 	#[serde(default)]
 	pub distro: Distro,
-	/// Vendor of the device.
+	/// Vendor of the device. Can be any combination of letters, digits, hyphen `"-"` and underscore (`"_"`).
 	pub vendor: String,
 	/// CPU Architecture of the device.
+	///
+	/// Possible values:
+	///
+	/// - `amd64`
+	/// - `arm64`
+	/// - `loongarch64`
+	/// - `loongson3`
+	/// - `ppc64el`
+	/// - `riscv64`
+	/// - `mips64r6el`
 	pub arch: DeviceArch,
-	/// Vendor of the SoC platform.
+	/// Vendor of the SoC platform, optional, currently not used.
 	/// The name must present in arch/$ARCH/boot/dts in the kernel tree.
 	pub soc_vendor: Option<String>,
 	/// Full name of the device for humans.
 	pub name: String,
 	/// Model name of the device, if it is different than the full name.
 	pub model: Option<String>,
-	/// The most relevant value of the compatible string in the root of the
-	/// device tree, if it has one.
+	/// The most relevant value of the `compatible`` property defined in the root
+	/// of the device tree, if present. Otherwise just skip this.
 	///
 	/// For example, the device tree file of Raspberry Pi 5B defines the following:
 	/// ```dts
@@ -78,10 +320,11 @@ pub struct DeviceSpec {
 	/// 	compatible = "raspberrypi,5-model-b", "brcm,bcm2712";
 	/// }
 	/// ```
-	/// We should choose `"raspberrypi,5-model-b"` for this.
+	/// In this case, the value would be `"raspberrypi,5-model-b"`.
 	#[serde(rename = "compatible")]
 	pub of_compatible: Option<String>,
 	/// List of BSP packages to be installed.
+	/// Must be a list of valid package names, no checks are performed.
 	pub bsp_packages: Vec<String>,
 	/// Whether the device boots without an initrd image.
 	/// Useful for embedded systems (most of devices targeted by this
@@ -94,19 +337,69 @@ pub struct DeviceSpec {
 	#[serde(default)]
 	pub initrdless: bool,
 	/// The partition map used for the image.
+	///
+	/// Possible values:
+	///
+	/// - `mbr` or `dos`
+	/// - `gpt`
 	pub partition_map: PartitionMapType,
 	/// Number of the partitions.
 	pub num_partitions: u32,
-	/// Size of the image for each variant.
+	/// Size of the image for each variant, in MiB.
+	///
+	/// ### Example
+	///
+	/// ```toml
+	/// [size]
+	/// base = 6144
+	/// desktop = 22528
+	/// server = 6144
+	/// ```
 	pub size: ImageVariantSizes,
-	/// Partitions in the image.
+	/// Partitions in the image. Refer to [`PartitionSpec`] for details.
+	///
+	/// Due to how lists of objects are represented in TOML, the singular "partition" is explicitly allowed.
+	///
+	/// ### Example
+	///
+	/// ```toml
+	/// [[partition]]
+	/// num = 1
+	/// size = 614400
+	/// type = "esp"
+	/// filesystem = "fat32"
+	/// ...
+	///
+	/// [[partition]]
+	/// num = 2
+	/// size = 0
+	/// type = "linux"
+	/// filesystem = "ext4"
+	/// ...
+	/// ```
 	// Can be `[[partition]]` to avoid awkwardness.
 	#[serde(alias = "partition")]
 	pub partitions: Vec<PartitionSpec>,
-	/// Actions to apply bootloaders.
+	/// Actions to apply bootloaders. Refer to [`BootloaderSpec`] for details.
+	///
+	/// Due to how lists of objects are represented in TOML, the singular "bootloader" is explicitly allowed.
+	///
+	/// ### Example
+	///
+	/// ```toml
+	/// [[bootloader]]
+	/// type = "script"
+	/// script = "apply-bootloader.sh"
+	///
+	/// [[bootloader]]
+	/// type = "script"
+	/// script = "apply-bootloader2.sh"
+	/// ```
 	#[serde(alias = "bootloader")]
 	pub bootloaders: Option<Vec<BootloaderSpec>>,
 	/// Path to the device.toml.
+	///
+	/// This field is ignored during deserialization, and is automatically filled.
 	#[serde(skip_deserializing)]
 	pub file_path: PathBuf,
 }
@@ -162,7 +455,9 @@ impl DeviceSpec {
 
 	pub fn check(&self) -> Result<()> {
 		let path: &Path = self.file_path.as_ref();
-		let dirname = path.parent().context("Failed to get the directory containing the device spec file")?;
+		let dirname = path
+			.parent()
+			.context("Failed to get the directory containing the device spec file")?;
 		let mut strs_to_chk = vec![&self.id, &self.vendor];
 		if let Some(aliases) = &self.aliases {
 			aliases.iter().for_each(|s| strs_to_chk.push(s));
@@ -274,16 +569,18 @@ impl DeviceSpec {
 						if !script_path.is_file() {
 							bail!("Script '{}' not found within the same directory as the device.toml", &name);
 						}
-					},
+					}
 					BootloaderSpec::FlashPartition { path: _, partition } => {
-						if let Some(p) = self.partitions.get(*partition as usize) {
-							if p.filesystem != FilesystemType::Null {
+						if let Some(p) =
+							self.partitions.get(*partition as usize)
+						{
+							if p.filesystem != FilesystemType::None {
 								bail!("A bootloader tries to write to partition {} which already contains an active filesystem.", p.num);
 							}
 						} else {
 							bail!("Partition {} specified by a bootloader is not found.", partition);
 						}
-					},
+					}
 					BootloaderSpec::FlashOffset { path: _, offset } => {
 						// Anything must start from at least LBA 34.
 						if *offset < 512 * 34 {
@@ -399,8 +696,8 @@ impl ImageContext<'_> {
 			let last_free = free_blocks
 				.last()
 				.context("No more free space available for new partitions")?;
-			let size = if partition.size != 0 {
-				partition.size
+			let size = if partition.size_in_sectors != 0 {
+				partition.size_in_sectors
 			} else {
 				if partition.num != num_partitions {
 					bail!("Max sized partition must stay at the end of the table.");
@@ -501,8 +798,8 @@ impl ImageContext<'_> {
 				.context("No more free space available for new partitions")?;
 			let idx = TryInto::<usize>::try_into(partition.num)
 				.context("Partition number exceeds the limit")?;
-			let sectors = if partition.size != 0 {
-				TryInto::<u32>::try_into(partition.size)
+			let sectors = if partition.size_in_sectors != 0 {
+				TryInto::<u32>::try_into(partition.size_in_sectors)
 					.context("Partition size exceeds the limit of MBR")?
 			} else {
 				// Make sure it is the last partition.

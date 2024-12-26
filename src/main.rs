@@ -120,7 +120,6 @@ mod device;
 #[doc(hidden)]
 mod filesystem;
 /// Module handling the partitions.
-#[doc(hidden)]
 mod partition;
 /// Module handling the package installation.
 #[doc(hidden)]
@@ -137,7 +136,10 @@ pub use device::DeviceSpec;
 
 use core::time;
 use std::{
-	env::var, fs::{remove_dir, remove_dir_all}, path::{Path, PathBuf}, time::Instant
+	env::var,
+	fs::{remove_dir, remove_dir_all},
+	path::{Path, PathBuf},
+	time::Instant,
 };
 
 use anyhow::bail;
@@ -449,12 +451,18 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			let gid = var("SUDO_GID").ok();
 			if uid.is_some() || gid.is_some() {
 				let uid = if let Some(uid) = uid {
-					Some(uid.parse::<u32>().context(format!("Failed to parse $SUDO_UID '{}' into integer", &uid))?)
+					Some(uid.parse::<u32>().context(format!(
+						"Failed to parse $SUDO_UID '{}' into integer",
+						&uid
+					))?)
 				} else {
 					None
 				};
 				let gid = if let Some(gid) = gid {
-					Some(gid.parse::<u32>().context(format!("Failed to parse $SUDO_GID '{}' into integer", &gid))?)
+					Some(gid.parse::<u32>().context(format!(
+						"Failed to parse $SUDO_GID '{}' into integer",
+						&gid
+					))?)
 				} else {
 					None
 				};
