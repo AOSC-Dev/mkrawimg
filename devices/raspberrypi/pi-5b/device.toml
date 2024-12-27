@@ -103,7 +103,7 @@ usage = "boot"
 # It is advised to make the boot partition large enough to contain the
 # kernel and initramfs.
 # Use 0 for the rest of the partiton map.
-size = 614400
+size_in_sectors = 614400
 # (optional) Start position, in sectors, assuming sector size as 512.
 start_sector = 2048
 # Mountpoint
@@ -121,7 +121,7 @@ fs_label = "Boot"
 [[partitions]]
 no = 2
 type = "linux"
-size = 0
+size_in_sectors = 0
 mountpoint = "/"
 filesystem = "ext4"
 usage = "rootfs"

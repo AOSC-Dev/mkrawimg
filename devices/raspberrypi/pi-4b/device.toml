@@ -95,11 +95,11 @@ type = "esp"
 # - rootfs: This partition is used as the main system partition.
 # - swap: Causes an error. See the comments above.
 usage = "boot"
-# Partition size in Mebibytes (MiB).
+# Partition size in 512-byte sectors.
 # It is advised to make the boot partition large enough to contain the
 # kernel and initramfs.
 # Use 0 for the rest of the partiton map.
-size = 300
+size_in_sectors = 614400
 # Mountpoint
 mountpoint = "/boot/rpi"
 # Filesystem of the partition
@@ -116,7 +116,7 @@ fs_label = "Boot"
 [[partitions]]
 no = 2
 type = "linux"
-size = 0
+size_in_sectors = 0
 mountpoint = "/"
 filesystem = "ext4"
 usage = "rootfs"
