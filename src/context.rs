@@ -210,11 +210,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	fn postinst_step<P: AsRef<Path>>(
-		&self,
-		rootdir: P,
-		pm_data: &PartitionMapData,
-	) -> Result<()> {
+	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		self.info("Setting up the user and locale ...");
 		add_user(
@@ -228,7 +224,6 @@ impl ImageContext<'_> {
 		set_locale(rootdir, "en_US.UTF-8")?;
 		self.set_hostname(&rootdir)?;
 
-		self.generate_fstab(pm_data, &rootdir)?;
 		let postinst_script_dir =
 			self.device.file_path.parent().context(
 				"Unable to find the directory containing the device spec",
@@ -475,6 +470,8 @@ impl ImageContext<'_> {
 			&rootfs_mount,
 			&mut mountpoint_stack,
 		)?;
+		self.info("Generating fstab ...");
+		self.generate_fstab(&pm_data, &rootfs_mount)?;
 
 		self.info("Setting up bind mounts ...");
 		self.setup_chroot_mounts(&rootfs_mount, &mut mountpoint_stack)?;
@@ -494,7 +491,7 @@ impl ImageContext<'_> {
 
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
-		self.postinst_step(&rootfs_mount, &pm_data)?;
+		self.postinst_step(&rootfs_mount)?;
 
 		self.apply_bootloaders(&rootfs_mount, &loop_dev_path)?;
 
