@@ -58,7 +58,7 @@ num_partitions = 2
 
 # Size of the uncompressed raw image, for each variant, in Mebibytes (MiB).
 [size]
-base = 4096
+base = 6144
 desktop = 25000
 server = 6144
 
