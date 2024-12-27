@@ -123,3 +123,7 @@ mountpoint = "/"
 filesystem = "ext4"
 usage = "rootfs"
 fs_label = "AOSC OS"
+
+[[bootloader]]
+type = "script"
+name = "apply-bootloader.bash"
