@@ -36,11 +36,8 @@ compatible = "raspberrypi,5-model-b"
 
 # List of BSP packages to be installed.
 bsp_packages = [
-	"linux+kernel+rpi5",
-	"raspi-utils",
-	"raspi-firmware-boot",
-	"raspi-firmware-bluez",
-	"raspi-config",
+	"linux+kernel+rpi64+lts",
+	"rpi-firmware-boot",
 ]
 
 # Type of the partition map.
