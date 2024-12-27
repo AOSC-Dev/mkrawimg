@@ -193,7 +193,7 @@ pub fn sync_all() -> Result<()> {
 pub fn sync_filesystem(path: &dyn AsRef<Path>) -> Result<()> {
 	let tgt_path = path.as_ref();
 	let path = CString::new(tgt_path.as_os_str().as_encoded_bytes())?;
-	let path_ptr: *const i8 = path.as_ptr();
+	let path_ptr = path.as_ptr();
 
 	let fd = unsafe { open(path_ptr, O_RDONLY | O_NONBLOCK) };
 	if fd < 0 {
