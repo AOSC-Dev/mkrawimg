@@ -21,9 +21,7 @@ use mbrman::{MBRPartitionEntry, CHS, MBR};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-const FORBIDDEN_CHARS: &[char] = &[
-	'\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&',
-];
+const FORBIDDEN_CHARS: &[char] = &['\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&'];
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, strum::Display)]
 #[serde(rename_all = "lowercase")]
