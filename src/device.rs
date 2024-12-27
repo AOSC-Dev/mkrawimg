@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const FORBIDDEN_CHARS: &[char] = &[
-	'\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&', ' ', '\t',
+	'\'', '"', '\\', '/', '{', '}', '[', ']', '!', '`', '*', '&',
 ];
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, strum::Display)]
