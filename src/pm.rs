@@ -46,7 +46,8 @@ impl PackageManager for APT {
 		let mut script = String::from("export DEBIAN_FRONTEND=noninteractive;");
 		script += &argv.join(" ");
 		// chroot $CONTAINER bash -c "export DEBIAN_FRONTEND=noninteractive;apt-get install --yes -o Dpkg::Options::=--force-confnew pkgs ..."
-		run_str_script_with_chroot(container, &script, None)
+		run_str_script_with_chroot(container, &script, None)?;
+		run_str_script_with_chroot(container, "apt clean", None)
 	}
 }
 
@@ -63,7 +64,8 @@ impl PackageManager for Oma {
 			"--",
 		]);
 		argv.extend_from_slice(packages);
-		run_str_script_with_chroot(container, &argv.join(" "), None)
+		run_str_script_with_chroot(container, &argv.join(" "), None)?;
+		run_str_script_with_chroot(container, "oma --no-check-dbus clean", None)
 	}
 }
 
