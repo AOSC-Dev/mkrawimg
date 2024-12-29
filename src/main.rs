@@ -177,6 +177,9 @@ fn main() -> Result<()> {
 	})
 	.context("Can not register Ctrl-C (SIGTERM) handler.")?;
 
+	std::env::set_var("LANG", "C");
+	std::env::set_var("LC_ALL", "C");
+
 	// Parse the command line
 	let cmdline = Cmdline::try_parse()?;
 	match &cmdline.action {
