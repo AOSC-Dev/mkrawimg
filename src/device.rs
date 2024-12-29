@@ -78,8 +78,8 @@ pub enum DeviceArch {
 /// Fields
 /// ======
 ///
-/// `id` -  Device ID
-/// ---------------
+/// `id` - Device ID
+/// ----------------
 ///
 /// A string which identifies a specific device. Must be unique across the entire registry. It can be a combination of letters (`a-z`, `A-Z`), digits (`0-9`), hyphens (`-`) and underscores (`_`).
 ///
@@ -87,8 +87,8 @@ pub enum DeviceArch {
 /// id = "rpi-9"
 /// ```
 ///
-/// `aliases` -  Device Aliases
-/// -------------------------
+/// `aliases` - Device Aliases (Optional)
+/// -------------------------------------
 ///
 /// A list of strings that can also identify this specific device. Must be unique across the entire registry. Aliases follows the same naming restrictions.
 ///
@@ -96,8 +96,8 @@ pub enum DeviceArch {
 /// alias = ["pi9", "pi9b"]
 /// ```
 ///
-/// `vendor` -  Device Vendor
-/// -----------------------
+/// `vendor` - Device Vendor
+/// ------------------------
 ///
 /// A string that identifies the vendor of the device. Should be as same as the vendor-level directory name.
 ///
@@ -105,8 +105,8 @@ pub enum DeviceArch {
 /// vendor = "raspberrypi"
 /// ```
 ///
-/// `arch` -  Device CPU Architecture
-/// -------------------------------
+/// `arch` - Device CPU Architecture
+/// --------------------------------
 ///
 /// A string defines the architecture of the CPU used by this device.
 ///
@@ -123,8 +123,8 @@ pub enum DeviceArch {
 /// arch = "arm64"
 /// ```
 ///
-/// `name` -  Name of the device
-/// --------------------------
+/// `name` - Name of the device
+/// ---------------------------
 ///
 /// The human-friendly name of the device.
 ///
@@ -132,8 +132,8 @@ pub enum DeviceArch {
 /// name = "Raspberry Pi 9 Model B"
 /// ```
 ///
-/// `of_compatible` -  `compatible` Property in the Device Tree
-/// ---------------------------------------------------------
+/// `of_compatible` - `compatible` Property in the Device Tree (Optional)
+/// ---------------------------------------------------------------------
 ///
 /// The most relevant string in the `/compatible` property defined in the root of the device tree file. Typically it is the first value of the entry.
 ///
@@ -153,7 +153,7 @@ pub enum DeviceArch {
 /// ```
 ///
 /// `bsp_packages` -  List of mandatory BSP packages
-/// ----------------------------------------------
+/// ------------------------------------------------
 ///
 /// A list of package names to be installed in addition to the standard system distribution.
 ///
@@ -167,8 +167,8 @@ pub enum DeviceArch {
 /// bsp_packages = ["linux+kernel+rpi64+rpi9", "rpi-firmware-boot"]
 /// ```
 ///
-/// `initrdless` -  Booting without Init Ramdisk
-/// ------------------------------------------
+/// `initrdless` -  Booting without Init Ramdisk (Optional)
+/// -------------------------------------------------------
 ///
 /// A boolean value describes whether the device boots without an init ramdisk. Typically this is useful for a variety of embedded devices.
 ///
@@ -180,8 +180,27 @@ pub enum DeviceArch {
 /// initrdless = true
 /// ```
 ///
-/// `[sizes]` -  Image sizes for each variant
-/// ---------------------------------------
+/// `kernel_cmdline` - Kernel command line (Optional)
+/// -------------------------------------------------
+///
+/// List of strings representing the kernel command line. Can not contain white spaces, and cannot contain `root=` argument.
+///
+/// The `root=` command line is automatically generated using either `PARTUUID` or `UUID`, depending on whether the device boots without an initrd image.
+///
+/// The final kernel command line will be `root=` argument concatenated with rest of the arguments.
+///
+/// If this field is defined, the post installation script and any bootloader scripts will be able to reference it with `$KERNEL_CMDLINE`.
+///
+/// If you want to generate the kernel command line yourself with a script, please skip this field.
+///
+/// ```toml
+/// # The final command line $KERNEL_CMDLINE:
+/// # "root=PARTUUID=01234567-89ab-cdef-0123-456789abcdef console=ttyS0,115200 console=tty0 rw fsck.repair=yes"
+/// kernel_cmdline = ["console=ttyS0,115200", "console=tty0", "rw", "fsck.repair=yes"]
+/// ```
+///
+/// `[sizes]` - Image sizes for each variant
+/// ----------------------------------------
 ///
 /// An object describes the image size for each distribution variant: `base`, `desktop` and `server`.
 ///
@@ -198,8 +217,8 @@ pub enum DeviceArch {
 /// server = 6144
 /// ```
 ///
-/// `partition_map` -  Partition Table Type
-/// -------------------------------------
+/// `partition_map` - Partition Table Type
+/// --------------------------------------
 ///
 /// Type of the partition table used in the OS image.
 ///
@@ -212,8 +231,8 @@ pub enum DeviceArch {
 /// partition_map = "gpt"
 /// ```
 ///
-/// `num_partitions` -  Number of the partitions
-/// ------------------------------------------
+/// `num_partitions` - Number of the partitions
+/// -------------------------------------------
 ///
 /// A positive integer. Defines the number of the partitions in the OS image.
 ///
@@ -221,8 +240,8 @@ pub enum DeviceArch {
 /// num_partitions: 2
 /// ```
 ///
-/// `[[partition]]` -  List of Partitions
-/// -----------------------------------
+/// `[[partition]]` - List of Partitions
+/// ------------------------------------
 ///
 /// A list of objects describes the partitions in the OS image. Refer to the [`PartitionSpec`] for details.
 ///
@@ -247,8 +266,8 @@ pub enum DeviceArch {
 /// fs_label = "AOSC OS"
 /// ```
 ///
-/// `[[bootloader]]`: List of Bootloaders to be embedded (Optional)
-/// ---------------------------------------------------------------
+/// `[[bootloader]]` - List of Bootloaders to be embedded (Optional)
+/// ----------------------------------------------------------------
 ///
 /// A list of objects describes bootloaders to be applied onto the OS image. Refer to [`BootloaderSpec`] for details.
 ///
@@ -334,6 +353,9 @@ pub struct DeviceSpec {
 	///   device if initrd is not being used.
 	#[serde(default)]
 	pub initrdless: bool,
+	/// Kernel command line.
+	/// Must be a list of strings, and `root=` must not present in this list (it is automatically generated).
+	pub kernel_cmdline: Option<Vec<String>>,
 	/// The partition map used for the image.
 	///
 	/// Possible values:
@@ -589,6 +611,40 @@ impl DeviceSpec {
 			}
 		}
 		Ok(())
+	}
+
+	pub fn gen_kernel_cmdline(&self, pm_data: &PartitionMapData) -> Result<String> {
+		let str = if let Some(cmdline) = self.kernel_cmdline.as_ref() {
+			let mut str = String::new();
+			let root_part = self.partitions.iter().find(|x| x.usage == PartitionUsage::Rootfs).context("Unable to find a root filesystem to generate kernel command line")?;
+			let root_param = if self.initrdless {
+				format!(
+					"root=PARTUUID={} ",
+					&pm_data.data
+						.get(&root_part.num)
+						.as_ref()
+						.unwrap()
+						.part_uuid
+				)
+			} else {
+				format!(
+					"root=UUID={} ",
+					&pm_data.data
+						.get(&root_part.num)
+						.as_ref()
+						.unwrap()
+						.fs_uuid
+						.as_ref()
+						.unwrap()
+				)
+			};
+			str += &root_param;
+			str += &cmdline.join(" ");
+			str
+		} else {
+			String::new()
+		};
+		Ok(str)
 	}
 }
 
@@ -877,6 +933,7 @@ NUM_PARTITIONS='{3}'
 ROOTPART='{4}'
 DISKLABEL='{5}'
 DISKUUID='{6}'
+KERNEL_CMDLINE='{7}'
 "#,
 			self.device.id,
 			&self.device.of_compatible.clone().unwrap_or("".to_string()),
@@ -885,6 +942,7 @@ DISKUUID='{6}'
 			rootpart.as_ref().to_string_lossy(),
 			&self.device.partition_map.to_string().to_lowercase(),
 			&pm_data.uuid,
+			&self.device.gen_kernel_cmdline(pm_data)?
 		);
 		for part in &self.device.partitions {
 			let part_data = pm_data.data.get(&part.num).context(format!(
