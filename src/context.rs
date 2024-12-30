@@ -121,9 +121,24 @@ impl ImageContext<'_> {
 				src_dir.display(),
 				dst_dir.as_path().display()
 			);
-			let mount =
-				Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
-			mount.mount(src_dir, &dst_dir)?;
+			// Shoud we handle standard options like ro, nosuid, noexec, etc?
+			if let Some(opts) = partition.mount_opts.as_ref() {
+				// "defaults" in mount options are ignored.
+				let opts: Vec<_> = opts
+					.iter()
+					.map(|x| x.as_str())
+					.filter(|x| x != &"defaults")
+					.collect();
+				let opts = opts.join(",");
+				let mount = Mount::builder()
+					.fstype(partition.filesystem.get_os_fstype()?)
+					.data(&opts);
+				mount.mount(src_dir, &dst_dir)?;
+			} else {
+				let mount = Mount::builder()
+					.fstype(partition.filesystem.get_os_fstype()?);
+				mount.mount(src_dir, &dst_dir)?;
+			};
 			stack.push(dst_dir.to_string_lossy().to_string());
 		}
 		Ok(())

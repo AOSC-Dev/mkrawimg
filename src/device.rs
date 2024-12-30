@@ -1079,7 +1079,11 @@ KERNEL_CMDLINE='{7}'
 				};
 				// dst = mountpoint
 				// `genfstab(8)` uses the options field in `/proc/mounts`, which is the expanded result from `defaults`.
-				let options = "defaults";
+				let options = if let Some(opts) = partition.mount_opts.as_ref() {
+					opts.join(",")
+				} else {
+					"defaults".to_owned()
+				};
 				let fsck_passno = if partition.usage == PartitionUsage::Rootfs {
 					1
 				} else {
@@ -1090,7 +1094,7 @@ KERNEL_CMDLINE='{7}'
 					&src,
 					&mountpoint,
 					&partition.filesystem.get_os_fstype()?,
-					options,
+					&options,
 					0,
 					fsck_passno
 				);

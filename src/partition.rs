@@ -262,6 +262,23 @@ pub enum PartitionType {
 /// mountpoint = "/boot/firmware"
 /// ```
 ///
+/// `mount_opts` - Mount options (Optional)
+/// ---------------------------------------
+///
+/// Mount options used to mount the filesystem. This will be present in the generated `/etc/fstab`.
+///
+/// <div class="warning">
+/// The handling of the mount options is not complete, only options specific to the filesystem type are allowed.
+///
+/// That is, options like <code>ro</code>, <code>noexec</code> and <code>nosuid</code> are not handled, and will result in an error if specified.
+/// </div>
+///
+/// If not defined, `defaults` will be used. If defined, `defaults` will **not** be joined with the options.
+///
+/// ```toml
+/// mount_opts = ["compress=zstd"]
+/// ```
+///
 /// `usage` - Usage of the partition
 /// --------------------------------
 ///
@@ -339,13 +356,14 @@ pub enum PartitionType {
 /// mountpoint = "/efi"
 /// usage = "boot"
 ///
-/// # Root filesystem
+/// # Root filesystem, btrfs with ZStandard compression
 /// [[partition]]
 /// num = 4
 /// type = "linux"
 /// label = "Root"
 /// size_in_sectors = 0
-/// filesystem = "ext4"
+/// filesystem = "btrfs"
+/// mount_opts = ["compress=zstd"]
 /// mountpoint = "/"
 /// usage = "rootfs"
 /// ```
@@ -369,6 +387,7 @@ pub struct PartitionSpec {
 	pub label: Option<String>,
 	pub mountpoint: Option<String>,
 	pub filesystem: FilesystemType,
+	pub mount_opts: Option<Vec<String>>,
 	pub fs_label: Option<String>,
 	pub usage: PartitionUsage,
 }
