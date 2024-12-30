@@ -8,6 +8,7 @@ bsp_packages = [
 	"grub",
 	"linux+kernel"
 ]
+kernel_cmdline = ["rw", "rd.auto", "rd.auto=1", "mitigations=off", "audit=0", "ibt=off"]
 partition_map = "gpt"
 num_partitions = 2
 
@@ -31,7 +32,8 @@ type = "linux"
 usage = "rootfs"
 size_in_sectors = 0
 mountpoint = "/"
-filesystem = "ext4"
+filesystem = "btrfs"
+mount_opts = ["defaults", "compress=zstd"]
 
 [[bootloader]]
 type = "script"

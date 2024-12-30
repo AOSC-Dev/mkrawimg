@@ -1,3 +1,6 @@
+echo "Kernel cmdline:"
+echo $KERNEL_CMDLINE
+
 echo "Disabling os-prober ..."
 echo -e "\nGRUB_DISABLE_OS_PROBER=true" >> /etc/default/grub
 
