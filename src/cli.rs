@@ -150,7 +150,7 @@ pub enum ListFormat {
 ///
 ///   Possible values are: `btrfs`, `ext4`, `xfs`.
 ///
-/// - `-c`, `--compression` `COMPRESSION`
+/// - `-x`, `--compression` `COMPRESSION`
 ///
 ///   Specify the compression format of the output image.
 ///
@@ -309,7 +309,7 @@ pub enum Action {
 		fstype: Option<RootFsType>,
 
 		/// Image compression format
-		#[arg(short, long, value_enum, default_value_t = Compression::Xz)]
+		#[arg(short = 'x', long, value_enum, default_value_t = Compression::Xz)]
 		compression: Compression,
 
 		/// Variants to generate (All if not specified)
