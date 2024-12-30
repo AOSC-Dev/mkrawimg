@@ -67,6 +67,7 @@ pub enum DeviceArch {
 /// - How many BSP packages for this device should be installed in addition to the standard system distribution.
 /// - Whether the image of the device must have bootloaders applied, and how to apply them.
 /// - Basic information, like its ID, vendor and model name.
+/// - An optional [post-installation script](#post-installation) to finalize the OS image.
 ///
 /// It must be placed under the device-level directory of the [device registry].
 ///
@@ -287,12 +288,68 @@ pub enum DeviceArch {
 /// name = "finish-bootloaders.sh"
 /// ```
 ///
+/// Process of building images
+/// ==========================
+///
+/// 1. This device gets selected in the registry.
+/// 2. An OS image is created with specified size, and is attached to a loop device.
+/// 3. The image is partitioned.
+/// 4. Partitions with filesystem assigned to them is formatted.
+/// 5. Filesystems with a mountpoint will be mounted.
+/// 6. The standard system distribution is installed to the target filesystem, and `/etc/fstab` is generated.
+/// 7. BSP packages is installed.
+/// 8. The [post-installation script](#post-installation) is run.
+/// 9. The [bootloaders] will be applied, if defined in the spec file.
+/// 10. The image is unmounted, detached from the loop device, and is compressed to the output directory.
+///
+/// Post Installation
+/// =================
+///
+/// An optional post installation script can be run after:
+///
+/// - All of the filesystems with a mount point are mounted.
+/// - The standard system distribution is installed.
+/// - All of the BSP packages gets installed.
+/// - `/etc/fstab` is generated.
+/// - A user is set up.
+///
+/// The post installation script will be run within the target OS image. The script name must be one of:
+///
+/// - `postinst.bash`
+/// - `postinst.sh`
+/// - `postinst` (The shebang is not interpreted, thus must be a shell script)
+///
+/// Available defined variables
+/// ---------------------------
+///
+/// There are a few variables pre-defined in the environment to aid your setup process:
+///
+/// - `DEVICE_ID`: Device ID.
+/// - `DEVICE_COMPATIBLE`: `of_compatible` field defined in the device specification. Empty if not defined.
+/// - `LOOPDEV`: The loop device this OS image is attached on.
+/// - `NUM_PARTITIONS`: Number of the partitions.
+/// - `ROOTPART`: The index of the root partition.
+/// - `DISKLABEL`: Either `mbr` or `gpt`.
+/// - `DISKUUID`: UUID of the partition table.
+///
+///    Either a 32-bit hexadecimal integer or an UUID (Same as the output of `blkid`).
+/// - `KERNEL_CMDLINE`: Full kernel command line with `root=` argument. Empty if not defined in the spec file.
+/// - `PARTx_PARTUUID`: Partition UUID of the xth partition.
+///
+///   Same as the output of `blkid`, can be used directly with `root=PARTUUID=` argument.
+/// - `PARTx_FSUUID`: Filesystem UUID of the xth partition.
+///
+///   Same as the output of `blkid`, can be used directly with `root=UUID=` argument. Empty if this partition does not contain a filesystem.
+/// - `BOOT_PARTUUID`, `BOOT_FSUUID`: Partition and Filesystem UUID for the boot partition, if one is found.
+/// - `ROOT_PARTUUID`, `ROOT_FSUUID`: Partition and Filesystem UUID for the root partition.
+///
 /// Examples
 /// ========
 ///
 /// Please refer to the device registry directory in the project for examples.
 ///
 /// [device registry]: crate::registry::DeviceRegistry
+/// [bootloaders]: crate::bootloader::BootloaderSpec
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct DeviceSpec {
