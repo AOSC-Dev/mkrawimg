@@ -27,12 +27,23 @@ use crate::{context::ImageContext, utils::run_script_with_chroot};
 ///
 /// Multiple entries are allowed, thus you can flash multiple files and run different scripts. The list will be executed sequencially.
 ///
-/// Examples
-/// --------
+/// Usage
+/// -----
 ///
 /// In your `device.toml`, add one or more of the `[[bootloader]]` list items. Examples of `[[bootloader]]` entries are shown below:
 ///
 /// ### Run a script within the same directory as `device.toml`
+///
+/// The script must present within the same directory of the device specification file, for example:
+///
+/// ```plain
+/// device1/
+///     apply-bootloader.sh
+///     device.toml
+///     postinst.sh
+/// ```
+///
+/// [Defined variables] are available for all bootloader scripts.
 ///
 /// ```toml
 /// [[bootloader]]
@@ -62,6 +73,8 @@ use crate::{context::ImageContext, utils::run_script_with_chroot};
 ///
 /// ### Flash a bootloader image to the specific location of the target image
 ///
+/// The offset is not checked for overlaps of the partition/filesystem. Use it at your own risk.
+///
 /// ```toml
 /// [[bootloader]]
 /// type = flash_offset
@@ -69,6 +82,8 @@ use crate::{context::ImageContext, utils::run_script_with_chroot};
 /// # Offset from the start of the target image in bytes.
 /// offset = 0x400
 /// ```
+///
+/// [Defined variables]: crate::device::DeviceSpec#available-defined-variables
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum BootloaderSpec {
