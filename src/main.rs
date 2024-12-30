@@ -84,12 +84,12 @@
 //! # ./target/release/mkrawimg build-all --variants VARIANTS
 //! ```
 //!
-//! For the advanced usage, please go to [`Cmdline`].
+//! For the advanced usage, please refer to [`Cmdline`].
 //!
 //! Adding a new device
 //! -------------------
 //!
-//! To add support for a new device, please go to [`DeviceSpec`].
+//! To add support for a new device, please refer to [`DeviceSpec`].
 //!
 //! Contributing
 //! ------------
