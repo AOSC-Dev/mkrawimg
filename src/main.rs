@@ -453,22 +453,14 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			let uid = var("SUDO_UID").ok();
 			let gid = var("SUDO_GID").ok();
 			if uid.is_some() || gid.is_some() {
-				let uid = if let Some(uid) = uid {
-					Some(uid.parse::<u32>().context(format!(
-						"Failed to parse $SUDO_UID '{}' into integer",
-						&uid
-					))?)
-				} else {
-					None
-				};
-				let gid = if let Some(gid) = gid {
-					Some(gid.parse::<u32>().context(format!(
-						"Failed to parse $SUDO_GID '{}' into integer",
-						&gid
-					))?)
-				} else {
-					None
-				};
+				let uid = uid.map(|x| {
+					x.parse::<u32>().with_context(|| format!("Failed to parse $SUDO_UID '{}' into integer",
+						&x))
+				}).transpose()?;
+				let gid = gid.map(|x| {
+					x.parse::<u32>().with_context(|| format!("Failed to parse $SUDO_GID '{}' into integer",
+						&x))
+				}).transpose()?;
 				info!("This tool is running with sudo, fixing ownership of the output directory ...");
 				return_ownership_recursive(&cmdline.outdir, uid, gid)?;
 			}
