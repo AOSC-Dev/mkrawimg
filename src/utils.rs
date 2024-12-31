@@ -242,7 +242,7 @@ where
 	// shadow does not expose such functionality through a library,
 	// we have to invoke commands to achieve this.
 	let name = name.as_ref();
-	let root = root.as_ref().to_string_lossy();
+	let root = root.as_ref().to_string_lossy().to_string();
 	let password = password.as_ref();
 	let comment = comment.as_ref();
 	let homedir = if let Some(h) = homedir {
@@ -257,17 +257,18 @@ where
 		DEFAULT_GROUPS
 	};
 	let groups = groups.join(",");
-	let mut cmd_useradd = Command::new("useradd");
-	let mut cmd_chpasswd = Command::new("chpasswd");
+	let mut cmd_useradd = Command::new("chroot");
+	let mut cmd_chpasswd = Command::new("chroot");
 	cmd_useradd
-		.args(["-R", &root])
+		.arg(&root)
+		.arg("useradd")
 		.args(["-m", "-d", &homedir])
 		.args(["-G", &groups]);
 	if let Some(c) = comment {
 		cmd_useradd.args(["-c", c.as_ref()]);
 	}
 	cmd_useradd.arg(name);
-	cmd_chpasswd.stdin(Stdio::piped()).args(["-R", &root]);
+	cmd_chpasswd.stdin(Stdio::piped()).args([&root, "chpasswd"]);
 	cmd_run_check_status(&mut cmd_useradd)?;
 	let mut chpasswd_proc = cmd_chpasswd.spawn().context("Failed to run chpasswd")?;
 	let chpasswd_stdin = chpasswd_proc
