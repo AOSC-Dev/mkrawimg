@@ -43,7 +43,7 @@ impl PackageManager for APT {
 			"--",
 		]);
 		argv.extend_from_slice(packages);
-		let mut script = String::from("export DEBIAN_FRONTEND=noninteractive;");
+		let mut script = String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
 		script += &argv.join(" ");
 		// chroot $CONTAINER bash -c "export DEBIAN_FRONTEND=noninteractive;apt-get install --yes -o Dpkg::Options::=--force-confnew pkgs ..."
 		run_str_script_with_chroot(container, &script, None)?;
