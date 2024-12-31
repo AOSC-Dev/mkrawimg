@@ -1,0 +1,90 @@
+#!/bin/bash -e
+
+BINNAME=mkrawimg
+
+is_bin_older_than_src() {
+	local _mtime_src _mtime _mtime_bin
+	_mtime_src=0
+	for f in ./src/* ; do
+		_mtime=$(stat --printf "%Y" "$f")
+		if [ "$_mtime" -gt "$_mtime_src" ] ; then
+			_mtime_src="$_mtime"
+		fi
+	done
+	_mtime_bin=$(stat --printf "%Y" ./target/release/$BINNAME)
+	if [ "$_mtime_bin" -lt "$_mtime_src" ] ; then
+		return 0
+	else
+		return 1
+	fi
+}
+
+if [ -x ./target/release/$BINNAME ] ; then
+	if ! is_bin_older_than_src ; then
+		exec ./target/release/$BINNAME "$@"
+	else
+		echo "-- The source is newer than the binary. Rebuilding."
+	fi
+else
+	echo "-- The binary is not built yet. Building the binary."
+fi
+errors=()
+check_lib_deps() {
+	local libs progs
+	set +e
+	libs=('-lc' '-lblkid' '-llzma' '-lzstd')
+	declare -A hdrs
+	# Fortunately, all libraies can be checked with one header files.
+	hdrs=(['-lc']="unistd.h" ['-lblkid']="blkid/blkid.h" ['-lzstd']="zstd.h" ['-llzma']='lzma.h')
+	for lib in "${libs[@]}" ; do
+		echo "-- Checking for library lib${lib##-l}"
+		libtest=$(mktemp /tmp/XXXXXX.c)
+		hdr=${hdrs[$lib]}
+		cat > $libtest << EOF
+#include <$hdr>
+int main() {
+	return 0;
+}
+EOF
+	gcc -o /dev/null $lib $libtest &>/dev/null
+	if [ "$?" != "0" ] ; then
+		errors+=("lib${lib##-l} is missing in your system.")
+		echo "-- Checking for library lib${lib##-l} - not found"
+	else
+
+		echo "-- Checking for library lib${lib##-l} - found"
+	fi
+	rm $libtest
+	done
+}
+
+check_bin_deps() {
+	local bins
+	bins=('rsync' 'mkfs.ext4' 'mkfs.btrfs' 'mkfs.vfat' 'mkfs.btrfs' 'chroot' 'partprobe')
+	for bin in "${bins[@]}" ; do
+		echo "-- Checking for program \"$bin\""
+		if ! command -v $bin &>/dev/null ; then
+			errors+=("Program \"$bin\" does not exist in your system.")
+			echo "-- Checking for program \"$bin\" -- not found"
+		else
+			echo "-- Checking for program \"$bin\" -- found"
+		fi
+	done
+}
+
+echo "-- Checking library dependencies"
+check_lib_deps
+echo "-- Checking external program dependencies"
+check_bin_deps
+
+if [ "${#errors[@]}" -ge 1 ] ; then
+	echo "- Error(s) encountered!"
+	for err in "${errors[@]}" ; do
+		echo "    - $err"
+	done
+	echo "-- Please fix them before continuing."
+	exit 1
+fi
+
+cargo build --release --bin $BINNAME
+exec ./target/release/$BINNAME "$@"
