@@ -46,16 +46,16 @@ int main() {
 	return 0;
 }
 EOF
-	gcc -o /dev/null $lib $libtest &>/dev/null
-	if [ "$?" != "0" ] ; then
-		errors+=("lib${lib##-l} is missing in your system.")
-		echo "-- Checking for library lib${lib##-l} - not found"
-	else
-
-		echo "-- Checking for library lib${lib##-l} - found"
-	fi
-	rm $libtest
+		gcc -o /dev/null $lib $libtest &>/dev/null
+		if [ "$?" != "0" ] ; then
+			errors+=("lib${lib##-l} is missing in your system.")
+			echo "-- Checking for library lib${lib##-l} - not found"
+		else
+			echo "-- Checking for library lib${lib##-l} - found"
+		fi
+		rm $libtest
 	done
+	set -e
 }
 
 check_bin_deps() {
