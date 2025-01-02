@@ -127,12 +127,15 @@ mod pm;
 mod registry;
 #[doc(hidden)]
 mod tests;
+#[doc(hidden)]
+mod topics;
 /// Module containing various utility functions.
 #[doc(hidden)]
 mod utils;
 
 pub use cli::Cmdline;
 pub use device::DeviceSpec;
+use topics::{fetch_topics, filter_topics};
 
 use core::time;
 use std::{
@@ -295,6 +298,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			variants,
 			revision,
 			additional_packages,
+			topics,
 			..
 		}
 		| cli::Action::BuildAll {
@@ -303,6 +307,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			variants,
 			revision,
 			additional_packages,
+			topics,
 		} => {
 			let fstype = match fstype {
 				Some(RootFsType::Ext4) => Some(FilesystemType::Ext4),
@@ -327,6 +332,14 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					panic!("Should not go here");
 				}
 			};
+			let topics = if let Some(topics) = topics.as_ref() {
+				let all_topics = fetch_topics()?;
+				let filtered_topics = filter_topics(topics, all_topics)?;
+				Some(filtered_topics)
+			} else {
+				None
+			};
+			let topics = topics.as_ref();
 			// Prepare to build
 			info!("Preparing build ...");
 			std::fs::create_dir_all(&cmdline.workdir)?;
@@ -373,6 +386,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 						additional_packages: &additional_packages,
 						compress: &compress,
 						base_dist,
+						topics,
 					});
 				}
 			}

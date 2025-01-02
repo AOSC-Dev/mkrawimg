@@ -28,6 +28,7 @@ pub enum Oma {}
 
 pub trait PackageManager {
 	fn install(packages: &[&str], container: &dyn AsRef<Path>) -> Result<()>;
+	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()>;
 }
 
 impl PackageManager for APT {
@@ -43,10 +44,16 @@ impl PackageManager for APT {
 			"--",
 		]);
 		argv.extend_from_slice(packages);
-		let mut script = String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
+		let mut script =
+			String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
 		script += &argv.join(" ");
 		// chroot $CONTAINER bash -c "export DEBIAN_FRONTEND=noninteractive;apt-get install --yes -o Dpkg::Options::=--force-confnew pkgs ..."
 		run_str_script_with_chroot(container, &script, None)?;
+		run_str_script_with_chroot(container, "apt clean", None)
+	}
+
+	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()> {
+		run_str_script_with_chroot(container, "export DEBIAN_FRONTEND=noninteractive;apt-get update;apt-get full-upgrade --yes", None)?;
 		run_str_script_with_chroot(container, "apt clean", None)
 	}
 }
@@ -65,6 +72,14 @@ impl PackageManager for Oma {
 		]);
 		argv.extend_from_slice(packages);
 		run_str_script_with_chroot(container, &argv.join(" "), None)?;
+		run_str_script_with_chroot(container, "oma --no-check-dbus clean", None)
+	}
+	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()> {
+		run_str_script_with_chroot(
+			container,
+			"oma --no-check-dbus upgrade --no-progress --force-confnew --yes",
+			None,
+		)?;
 		run_str_script_with_chroot(container, "oma --no-check-dbus clean", None)
 	}
 }

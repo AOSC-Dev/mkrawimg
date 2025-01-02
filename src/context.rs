@@ -9,9 +9,11 @@ use std::{
 
 use crate::{
 	cli::Compression,
-	device::{DeviceSpec, PartitionMapData, PartitionMapType},
+	device::{DeviceArch, DeviceSpec, PartitionMapData, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
+	pm::{Distro, Oma, PackageManager, APT},
+	topics::{save_topics, Topic},
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
 		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
@@ -51,6 +53,7 @@ pub struct ImageContext<'a> {
 	pub override_rootfs_fstype: &'a Option<FilesystemType>,
 	pub additional_packages: &'a Option<Vec<String>>,
 	pub compress: &'a Compression,
+	pub topics: Option<&'a Vec<Topic>>,
 }
 
 pub type ImageContextQueue<'a> = Vec<ImageContext<'a>>;
@@ -267,6 +270,8 @@ impl ImageContext<'_> {
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
+
+		self.save_topics(&rootdir)?;
 		Ok(())
 	}
 
@@ -359,6 +364,25 @@ impl ImageContext<'_> {
 			"Compression finished in {:.2} seconds.",
 			duration.as_secs_f64()
 		));
+		Ok(())
+	}
+
+	fn save_topics(&self, rootdir: &dyn AsRef<Path>) -> Result<()> {
+		if self.device.distro != Distro::AOSC {
+			bail!("Topic is available for AOSC only.");
+		}
+		if let Some(topics) = &self.topics {
+			self.info("Saving topics ...");
+			save_topics(rootdir.as_ref(), topics)?;
+			if !self.device.arch.is_native()
+				&& (self.device.arch == DeviceArch::Mips64r6el
+					|| self.device.arch == DeviceArch::Riscv64)
+			{
+				APT::upgrade_system(rootdir)?;
+			} else {
+				Oma::upgrade_system(rootdir)?;
+			}
+		}
 		Ok(())
 	}
 

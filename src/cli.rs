@@ -170,6 +170,10 @@ pub enum ListFormat {
 ///
 ///   Supply a list of package names to install into the target system. This does not override the defined list.
 ///
+/// - `-T`, `--topics` `TOPIC [TOPIC..]`
+///
+///   Enroll addition topic(s) during installation.
+///
 /// Arguments for `build`
 /// ---------------------
 ///
@@ -324,6 +328,10 @@ pub enum Action {
 		#[arg(short = 'p', long = "packages", num_args = 1..)]
 		additional_packages: Option<Vec<String>>,
 
+		/// Topics to be enrolled
+		#[arg(short = 'T', num_args = 1..)]
+		topics: Option<Vec<String>>,
+
 		/// ID or alias of the target device.
 		///
 		/// Can be one of the following:
@@ -356,6 +364,10 @@ pub enum Action {
 		/// Additional packages
 		#[arg(short = 'p', long = "packages", num_args = 1..)]
 		additional_packages: Option<Vec<String>>,
+
+		/// Topics to be enrolled
+		#[arg(short = 'T', num_args = 1..)]
+		topics: Option<Vec<String>>,
 	},
 	/// Check for validity of the devices registry.
 	Check {
