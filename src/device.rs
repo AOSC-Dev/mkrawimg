@@ -660,7 +660,9 @@ impl DeviceSpec {
 					}
 					BootloaderSpec::FlashOffset { path: _, offset } => {
 						// Anything must start from at least LBA 34.
-						if self.partition_map == PartitionMapType::GPT && *offset < 512 * 34 {
+						if self.partition_map == PartitionMapType::GPT
+							&& *offset < 512 * 34
+						{
 							bail!("A bootloader tries to overlap the partition table. It must start from at least 0x4400 (17408), or LBA 34.");
 						}
 					}
