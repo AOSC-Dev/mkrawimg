@@ -319,10 +319,6 @@ pub enum DeviceArch {
 /// - `postinst.sh`
 /// - `postinst` (The shebang is not interpreted, thus must be a shell script)
 ///
-/// <div class="warning">
-/// During post-installation, loop devices can not be accessed (for now). This will be fixed in the later version.
-/// </div>
-///
 /// Available defined variables
 /// ---------------------------
 ///

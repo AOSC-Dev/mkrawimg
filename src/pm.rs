@@ -48,13 +48,14 @@ impl PackageManager for APT {
 			String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
 		script += &argv.join(" ");
 		// chroot $CONTAINER bash -c "export DEBIAN_FRONTEND=noninteractive;apt-get install --yes -o Dpkg::Options::=--force-confnew pkgs ..."
-		run_str_script_with_chroot(container, &script, None)?;
-		run_str_script_with_chroot(container, "apt clean", None)
+		// Block device access is only available to post-installation script and bootloader scripts.
+		run_str_script_with_chroot(container, &script, &[], None)?;
+		run_str_script_with_chroot(container, "apt clean", &[], None)
 	}
 
 	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()> {
-		run_str_script_with_chroot(container, "export DEBIAN_FRONTEND=noninteractive;apt-get update;apt-get full-upgrade --yes", None)?;
-		run_str_script_with_chroot(container, "apt clean", None)
+		run_str_script_with_chroot(container, "export DEBIAN_FRONTEND=noninteractive;apt-get update;apt-get full-upgrade --yes", &[], None)?;
+		run_str_script_with_chroot(container, "apt clean", &[], None)
 	}
 }
 
@@ -71,16 +72,17 @@ impl PackageManager for Oma {
 			"--",
 		]);
 		argv.extend_from_slice(packages);
-		run_str_script_with_chroot(container, &argv.join(" "), None)?;
-		run_str_script_with_chroot(container, "oma --no-check-dbus clean", None)
+		run_str_script_with_chroot(container, &argv.join(" "), &[], None)?;
+		run_str_script_with_chroot(container, "oma --no-check-dbus clean", &[], None)
 	}
 	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()> {
 		run_str_script_with_chroot(
 			container,
 			"oma --no-check-dbus upgrade --no-progress --force-confnew --yes",
+			&[],
 			None,
 		)?;
-		run_str_script_with_chroot(container, "oma --no-check-dbus clean", None)
+		run_str_script_with_chroot(container, "oma --no-check-dbus clean", &[], None)
 	}
 }
 

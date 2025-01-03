@@ -136,7 +136,7 @@ pub enum BootloaderSpec {
 }
 
 impl BootloaderSpec {
-	fn run_script<P, Q>(container: P, script: Q) -> Result<()>
+	fn run_script<P, Q>(container: P, script: Q, binds: &[&str]) -> Result<()>
 	where
 		P: AsRef<Path>,
 		Q: AsRef<Path>,
@@ -147,7 +147,7 @@ impl BootloaderSpec {
 		let filename = script.file_name().unwrap();
 		let dst = container.join("tmp").join(filename);
 		std::fs::copy(script, dst)?;
-		run_script_with_chroot(container, &Path::new("/tmp").join(filename), None)
+		run_script_with_chroot(container, &Path::new("/tmp").join(filename), binds, None)
 	}
 
 	fn apply_offset<P, Q, R>(img: P, offset: u64, container: Q, loopdev: R) -> Result<()>
@@ -198,7 +198,12 @@ impl BootloaderSpec {
 
 impl ImageContext<'_> {
 	#[allow(unused_variables)]
-	pub fn apply_bootloaders<P: AsRef<Path>>(&self, rootfs: P, loopdev: P) -> Result<()> {
+	pub fn apply_bootloaders<P: AsRef<Path>>(
+		&self,
+		rootfs: P,
+		loopdev: P,
+		binds: &[&str],
+	) -> Result<()> {
 		if self.device.bootloaders.is_none() {
 			return Ok(());
 		}
@@ -216,6 +221,7 @@ impl ImageContext<'_> {
 					BootloaderSpec::run_script(
 						rootfs,
 						device_spec_dir.join(name),
+						binds,
 					)?;
 				}
 				BootloaderSpec::FlashPartition { path, partition } => {

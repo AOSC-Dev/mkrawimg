@@ -336,6 +336,7 @@ pub fn cmd_run_check_status(cmd: &mut Command) -> Result<()> {
 pub fn run_str_script_with_chroot(
 	root: &dyn AsRef<Path>,
 	script: &str,
+	binds: &[&str],
 	shell: Option<&dyn AsRef<str>>,
 ) -> Result<()> {
 	let mut cmd = Command::new("systemd-nspawn");
@@ -349,23 +350,18 @@ pub fn run_str_script_with_chroot(
 	// bash -c -- script $0 $1 ...
 	// The positional param after "-c script" is $0 of that script.
 	let script = format!("source /tmp/spec.sh ;{}", script);
-	cmd.args([
-		"-q",
-		"-D",
-		&root.as_ref().to_string_lossy(),
-		"--",
-		shell,
-		"-c",
-		"--",
-		&script,
-		"<tmp_script>",
-	]);
+	cmd.args(["-q", "-D", &root.as_ref().to_string_lossy()]);
+	for bind in binds {
+		cmd.args(["--bind", bind]);
+	}
+	cmd.args(["--", shell, "-c", "--", &script, "<tmp_script>"]);
 	cmd_run_check_status(&mut cmd)
 }
 
 pub fn run_script_with_chroot<P: AsRef<Path>>(
 	root: P,
 	script: P,
+	binds: &[&str],
 	shell: Option<&dyn AsRef<str>>,
 ) -> Result<()> {
 	let mut cmd = Command::new("systemd-nspawn");
@@ -383,10 +379,11 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 		"source /tmp/spec.sh ; source {}",
 		&script.as_ref().to_string_lossy()
 	);
+	cmd.args(["-q", "-D", &root.as_ref().to_string_lossy()]);
+	for bind in binds {
+		cmd.args(["--bind", bind]);
+	}
 	cmd.args([
-		"-q",
-		"-D",
-		&root.as_ref().to_string_lossy(),
 		"--",
 		shell,
 		"-c",

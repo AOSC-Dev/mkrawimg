@@ -211,7 +211,7 @@ impl ImageContext<'_> {
 		Ok(())
 	}
 
-	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P) -> Result<()> {
+	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P, binds: &[&str]) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		self.info("Setting up the user and locale ...");
 		add_user(
@@ -249,7 +249,12 @@ impl ImageContext<'_> {
 			let dst_path = &rootdir.join("tmp").join(filename);
 			std::fs::copy(&postinst_script_path, dst_path)
 				.context("Failed to copy the post installation script")?;
-			run_script_with_chroot(rootdir, &Path::new("/tmp").join(filename), None)?;
+			run_script_with_chroot(
+				rootdir,
+				&Path::new("/tmp").join(filename),
+				binds,
+				None,
+			)?;
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
@@ -474,6 +479,27 @@ impl ImageContext<'_> {
 		self.info("Formating partitions ...");
 		self.format_partitions(&loop_dev_path, &mut pm_data)?;
 
+		// Bind mounts to be passed to systemd-nspawn(1).
+		// Switching to systemd-nspawn completely eliminates /dev,
+		// /sys and /proc bind mounts, but we have to bind mount the
+		// loop device the target image is attached to, and all of
+		// its partitions to the target, for post installtion and
+		// bootloader scripts to access them.
+		// We can not bind them beforehand, the only option is to
+		// pass `--bind bind1 --bind bind2 ...` to the nspawn
+		// command line.
+		let mut binds = Vec::new();
+		binds.push(loop_dev_path.to_string_lossy().to_string());
+		for partition in &self.device.partitions {
+			binds.push(format!(
+				"{}p{}",
+				loop_dev_path.to_string_lossy(),
+				partition.num
+			));
+		}
+		let binds = binds.iter().map(|x| x.as_str()).collect::<Vec<_>>();
+		let binds = binds.as_slice();
+
 		// The path to the block device which contains the root filesystem.
 		let rootpart_dev = format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
 		self.info("Mounting partitions ...");
@@ -513,9 +539,9 @@ impl ImageContext<'_> {
 
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
-		self.postinst_step(&rootfs_mount)?;
+		self.postinst_step(&rootfs_mount, binds)?;
 
-		self.apply_bootloaders(&rootfs_mount, &loop_dev_path)?;
+		self.apply_bootloaders(&rootfs_mount, &loop_dev_path, binds)?;
 
 		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
