@@ -114,7 +114,6 @@ mod cli;
 /// Module handling the actual generation jobs.
 #[doc(hidden)]
 mod context;
-/// Module handling various procedures for a specific device, and the device specification itself.
 mod device;
 /// Module handling the filesystems.
 #[doc(hidden)]

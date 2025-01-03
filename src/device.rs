@@ -1,3 +1,42 @@
+//! Module handling various procedures for a specific device, and the device specification itself.
+//!
+//! Adding support for new device
+//! =============================
+//!
+//! Adding a new device involves the following steps:
+//!
+//! 1.  Gather basic device information, such as its model name, vendor, and a unique ID.
+//! 2.  Determine the necessary Board Support Package (BSP) packages to be installed.
+//! 3.  Determine the device's partition layout (partition table type, number of partitions, sizes, starting positions, filesystems, etc.). See [Partition Specification] for details.
+//! 4.  Determine how to apply or flash bootloaders to the target image. This is often common across devices using U-Boot. See [Bootloaders] for details.
+//! 5.  Identify any additional image preparation steps. These can be implemented in a post-installation script.
+//!
+//! Once you have this information, create a [device-level directory in the registry] and write the [device specification file].
+//!
+//! ### Testing
+//!
+//! 1. run the built-in validity checks:
+//!
+//!    ```shell
+//!    ./target/release/mkrawimg check
+//!    ```
+//!
+//!    If there are errors in your device specification file, correct them based on the program's output. Repeat this step until no errors are reported.
+//!
+//! 2. after all errors are fixed, run a test build:
+//!
+//!    ```
+//!    ./target/release/mkrawimg build -V base your-device-ID
+//!    ```
+//!
+//! 3. Flash the image to your device to confirm that the image is bootable.
+//! 4. Submit a Pull Request to add the device to this project.
+//!
+//! [Partition Specification]: crate::partition::PartitionSpec
+//! [Bootloaders]: crate::bootloader::BootloaderSpec
+//! [device-level directory in the registry]: crate::registry::DeviceRegistry
+//! [device specification file]: crate::device::DeviceSpec
+
 use std::{
 	collections::HashMap,
 	ffi::OsStr,
@@ -67,9 +106,12 @@ pub enum DeviceArch {
 /// - How many BSP packages for this device should be installed in addition to the standard system distribution.
 /// - Whether the image of the device must have bootloaders applied, and how to apply them.
 /// - Basic information, like its ID, vendor and model name.
-/// - An optional [post-installation script](#post-installation) to finalize the OS image.
 ///
 /// It must be placed under the device-level directory of the [device registry].
+///
+/// An optional [post-installation script](#post-installation) can be placed in the device-level directory to finalize the installation. This script runs after all BSP packages are installed, in the target OS.
+///
+/// One or more optional [bootloader scripts] can be placed in the device-level directory. Bootloader scripts run after the post-installation script, and also in the target OS.
 ///
 /// Syntax
 /// ======
@@ -350,6 +392,7 @@ pub enum DeviceArch {
 ///
 /// [device registry]: crate::registry::DeviceRegistry
 /// [bootloaders]: crate::bootloader::BootloaderSpec
+/// [bootloader scripts]: crate::bootloader::BootloaderSpec#usage
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct DeviceSpec {
