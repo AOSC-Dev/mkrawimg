@@ -68,7 +68,7 @@
 //! </div>
 //!
 //! ```shell
-//! # ./target/release/mkrawimg build --variants VARIANTS DEVICE
+//! # ./target/release/mkrawimg build --variants VARIANTS -- DEVICE
 //! ```
 //!
 //! - `VARIANTS`: distribution variants, can be one or more of the `base`, `desktop`, `server`.
@@ -77,6 +77,12 @@
 //!   - Device ID (defined in `device.toml`).
 //!   - Device alias (defined in `device.toml`).
 //!   - The path to the `device.toml` file.
+//!
+//! For example:
+//!
+//! ```shell
+//! sudo ./target/releases/mkrawimg build -V desktop -- rpi-5b
+//! ```
 //!
 //! ### Build Images for All Devices (in the registry)
 //!

@@ -67,7 +67,7 @@ While `FORMAT` can be one of the following:
 > Building images requires the root privileges.
 
 ```shell
-sudo ./target/release/mkrawimg build --variants VARIANTS DEVICE
+sudo ./target/release/mkrawimg build --variants VARIANTS -- DEVICE
 ```
 
 - `VARIANTS`: distribution variants, can be one or more of the `base`, `desktop`, `server`.
@@ -80,7 +80,7 @@ sudo ./target/release/mkrawimg build --variants VARIANTS DEVICE
 For example:
 
 ```shell
-sudo ./target/releases/mkrawimg build -V desktop rpi-5b
+sudo ./target/releases/mkrawimg build -V desktop -- rpi-5b
 ```
 
 ### Build Images for All Devices (in the registry)

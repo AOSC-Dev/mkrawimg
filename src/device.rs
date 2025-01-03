@@ -26,7 +26,7 @@
 //! 2. after all errors are fixed, run a test build:
 //!
 //!    ```
-//!    ./target/release/mkrawimg build -V base your-device-ID
+//!    ./target/release/mkrawimg build -V base -- your-device-ID
 //!    ```
 //!
 //! 3. Flash the image to your device to confirm that the image is bootable.

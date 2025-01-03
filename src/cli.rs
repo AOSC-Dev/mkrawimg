@@ -21,7 +21,7 @@
 //! </div>
 //!
 //! ```shell
-//! # ./target/release/mkrawimg build --variants VARIANTS DEVICE
+//! # ./target/release/mkrawimg build --variants VARIANTS -- DEVICE
 //! ```
 //!
 //! - `VARIANTS`: distribution variants, can be one or more of the `base`, `desktop`, `server`.
