@@ -338,7 +338,7 @@ pub fn run_str_script_with_chroot(
 	script: &str,
 	shell: Option<&dyn AsRef<str>>,
 ) -> Result<()> {
-	let mut cmd = Command::new("chroot");
+	let mut cmd = Command::new("systemd-nspawn");
 	let shell = if let Some(s) = shell {
 		s.as_ref()
 	} else {
@@ -350,7 +350,10 @@ pub fn run_str_script_with_chroot(
 	// The positional param after "-c script" is $0 of that script.
 	let script = format!("source /tmp/spec.sh ;{}", script);
 	cmd.args([
+		"-q",
+		"-D",
 		&root.as_ref().to_string_lossy(),
+		"--",
 		shell,
 		"-c",
 		"--",
@@ -365,7 +368,7 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 	script: P,
 	shell: Option<&dyn AsRef<str>>,
 ) -> Result<()> {
-	let mut cmd = Command::new("chroot");
+	let mut cmd = Command::new("systemd-nspawn");
 	let shell = if let Some(s) = shell {
 		s.as_ref()
 	} else {
@@ -381,7 +384,10 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 		&script.as_ref().to_string_lossy()
 	);
 	cmd.args([
+		"-q",
+		"-D",
 		&root.as_ref().to_string_lossy(),
+		"--",
 		shell,
 		"-c",
 		"--",

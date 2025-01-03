@@ -24,7 +24,7 @@ use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
-use sys_mount::{unmount, Mount, MountFlags, UnmountFlags};
+use sys_mount::{unmount, Mount, UnmountFlags};
 use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
@@ -202,29 +202,12 @@ impl ImageContext<'_> {
 		rootdir: P,
 		stack: &mut Vec<String>,
 	) -> Result<()> {
-		const DIRS: &[&str] = &["proc", "sys", "dev"];
-		const TMPDIRS: &[&str] = &["run", "tmp"];
 		let rootdir = rootdir.as_ref();
-		for dir in DIRS {
-			let src = Path::new("/").join(dir);
-			let dst = rootdir.join(dir);
-			debug!(
-				"Bind mounting '{}' to '{}' ...",
-				src.display(),
-				dst.display()
-			);
-			let mount = Mount::builder().flags(MountFlags::BIND);
-			mount.mount(src, &dst)?;
-			stack.push(dst.to_string_lossy().to_string());
-		}
-		// Mount /run and /tmp
-		for dir in TMPDIRS {
-			let dst = rootdir.join(dir);
-			debug!("Mounting tmpfs to {} ...", &dst.display());
-			let mount = Mount::builder().fstype("tmpfs");
-			mount.mount("tmpfs", &dst)?;
-			stack.push(dst.to_string_lossy().to_string());
-		}
+		let dst = rootdir.join("tmp");
+		debug!("Mounting tmpfs to {} ...", &dst.display());
+		let mount = Mount::builder().fstype("tmpfs");
+		mount.mount("tmpfs", &dst)?;
+		stack.push(dst.to_string_lossy().to_string());
 		Ok(())
 	}
 
