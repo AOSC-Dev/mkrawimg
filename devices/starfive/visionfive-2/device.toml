@@ -1,0 +1,60 @@
+id = "visionfive-2"
+vendor = "starfive"
+alias = ["vf-2"]
+name = "StarFive VisionFive 2"
+arch = "riscv64"
+bsp_packages = [
+	"firmware-free",
+	"firmware-nonfree",
+	"jh7110-pvr-blobs",
+	"linux+kernel+starfive+jh7110",
+	"mesa-pvr-ddk119"
+]
+
+kernel_cmdline = ["rw", "console=tty0", "console=ttyS0,115200", "earlycon", "rootwait", "stmmaceth=chain_mode:1", "selinux=0"]
+partition_map = "gpt"
+num_partitions = 4
+
+[size]
+base = 6144
+desktop = 25000
+server = 6144
+
+# U-Boot SPL
+[[partition]]
+num = 1
+type = "uuid"
+uuid = "2E54B353-1271-4842-806F-E436D6AF6985"
+usage = "other"
+size_in_sectors = 4096
+start_sector = 4096
+filesystem = "none"
+
+[[partition]]
+num = 2
+type = "uuid"
+uuid = "5B193300-FC78-40CD-8002-E86C45580B47"
+usage = "other"
+size_in_sectors = 8192
+filesystem = "none"
+
+[[partition]]
+num = 3
+type = "esp"
+usage = "boot"
+size_in_sectors = 307200
+filesystem = "fat32"
+mountpoint = "/boot/u-boot"
+
+[[partition]]
+num = 4
+type = "linux"
+usage = "rootfs"
+size_in_sectors = 0
+filesystem = "btrfs"
+mount_opts = ["compress=zstd"]
+mountpoint = "/"
+
+[[bootloader]]
+type = "script"
+name = "apply-bootloader.bash"
