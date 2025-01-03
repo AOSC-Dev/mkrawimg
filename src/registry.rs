@@ -229,9 +229,9 @@ impl DeviceRegistry {
 		let idx_width = (devices.len().ilog10()) as usize + 1;
 		println!(
 			"{0} {1} {2} Vendor\n{3} Description\n{3} Aliases",
-			format!("{}#", " ".repeat(idx_width - 1)),
-			format!("{:<32}", "Device ID"),
-			format!("{:<12}", "Arch."),
+			format_args!("{}#", " ".repeat(idx_width - 1)),
+			format_args!("{:<32}", "Device ID"),
+			format_args!("{:<12}", "Arch."),
 			" ".repeat(idx_width)
 		);
 		println!("{}", "=".repeat(80));
@@ -249,9 +249,9 @@ impl DeviceRegistry {
 			//    pi5b, pi5
 			println!(
 				"{0} {1} {2} {3}\n{4} {5}\n{4} {6}",
-				format!("{}", idx),
-				format!("{:<32}", &device.id),
-				format!("{:<12}", &device.arch.to_string().to_lowercase()),
+				format_args!("{}", idx),
+				format_args!("{:<32}", &device.id),
+				format_args!("{:<12}", &device.arch.to_string().to_lowercase()),
 				&device.vendor,
 				" ".repeat(idx_width),
 				&device.name,

@@ -48,12 +48,12 @@ pub fn fetch_topics() -> Result<Vec<Topic>> {
 	Ok(topics)
 }
 
-pub fn filter_topics(specified: &Vec<String>, all: Vec<Topic>) -> Result<Vec<Topic>> {
+pub fn filter_topics(specified: &[String], all: Vec<Topic>) -> Result<Vec<Topic>> {
 	info!("Checking availability of specified topics ...");
 	let mut filtered = Vec::<Topic>::new();
-	let mut specified = specified.clone();
+	let mut specified = specified.to_owned();
 	specified.sort();
-	(&all).into_iter().for_each(|t| {
+	all.iter().for_each(|t| {
 		if specified.contains(&t.name) {
 			filtered.push(t.clone());
 		}
@@ -89,16 +89,16 @@ pub fn save_topics(sysroot: &Path, topics: &Vec<Topic>) -> Result<()> {
 	create_dir_all(atm_state_parent)?;
 
 	// Prepare APT sources
-	let topic_sources: Vec<String> = (&topics)
-		.into_iter()
-		.map(|x| String::from(format!("deb {} {} main", DEFAULT_MIRROR, x.name.clone())))
+	let topic_sources: Vec<String> = topics
+		.iter()
+		.map(|x| format!("deb {} {} main", DEFAULT_MIRROR, x.name.clone()))
 		.collect();
 
 	// Save atm.list
 	info!("Saving topic sources ...");
 	let content = topic_sources
 		.into_iter()
-		.map(|x| String::from(x + "\n"))
+		.map(|x| (x + "\n"))
 		.collect::<String>();
 	let buf = content.as_bytes();
 	let mut writer = File::create(atm_list_path)?;
