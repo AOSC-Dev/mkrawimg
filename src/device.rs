@@ -1,6 +1,6 @@
 //! Module handling various procedures for a specific device, and the device specification itself.
 //!
-//! Adding support for new device
+//! Adding support for a new device
 //! =============================
 //!
 //! Adding a new device involves the following steps:

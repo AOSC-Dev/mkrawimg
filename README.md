@@ -89,12 +89,12 @@ sudo ./target/releases/mkrawimg build -V desktop -- rpi-5b
 sudo ./target/release/mkrawimg build-all --variants VARIANTS
 ```
 
-For the advanced usage, please refer to [`Cmdline`](https://cyano.uk/rust-docs/mkrawimg/cli/struct.Cmdline.html).
+For the advanced usage, please refer to [Command line usage](https://cyano.uk/rust-docs/mkrawimg/cli/struct.Cmdline.html).
 
 Adding a new device
 -------------------
 
-To add support for a new device, please refer to [`DeviceSpec`](https://cyano.uk/rust-docs/mkrawimg/device/struct.DeviceSpec.html).
+To add support for a new device, please refer to [Adding support for a new device](https://cyano.uk/rust-docs/mkrawimg/device/index.html).
 
 Contributing
 ------------

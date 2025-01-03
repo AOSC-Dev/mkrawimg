@@ -90,12 +90,12 @@
 //! # ./target/release/mkrawimg build-all --variants VARIANTS
 //! ```
 //!
-//! For the advanced usage, please refer to [`Cmdline`].
+//! For the advanced usage, please refer to [Command line usage].
 //!
 //! Adding a new device
 //! -------------------
 //!
-//! To add support for a new device, please refer to [`DeviceSpec`].
+//! To add support for a new device, please refer to [Adding support for a new device].
 //!
 //! Contributing
 //! ------------
@@ -109,6 +109,10 @@
 //!
 //! This repository is licensed under the GNU GPL v3 license.
 //!
+//! [Command line usage]: crate::cli::Cmdline
+//! [Adding support for a new device]: crate::device
+//!
+
 // #![allow(warnings)]
 // Why do you guys hate tabs?
 // Look, I use tabs for indentation in my code.
