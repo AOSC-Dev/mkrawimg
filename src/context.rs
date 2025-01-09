@@ -363,8 +363,7 @@ impl ImageContext<'_> {
 			self.info("Saving topics ...");
 			save_topics(rootdir.as_ref(), topics)?;
 			if !self.device.arch.is_native()
-				&& (self.device.arch == DeviceArch::Mips64r6el
-					|| self.device.arch == DeviceArch::Riscv64)
+				&& self.device.arch == DeviceArch::Mips64r6el
 			{
 				APT::upgrade_system(rootdir)?;
 			} else {
