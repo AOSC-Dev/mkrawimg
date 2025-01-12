@@ -1,0 +1,128 @@
+# Device specification
+# A device specification must have the name 'device.toml'.
+
+# ID of a device. The ID will be used to identify the exact device that is
+# being targeted.
+id = "rpi-3b"
+
+# Other aliases that can be also used to identify the device.
+# Both ID and aliases must unique across the device database.
+aliases = ["pi3", "pi3b"]
+
+# Vendor of the device.
+vendor = "raspberrypi"
+
+# CPU Architecture of the device.
+arch = "arm64"
+
+# Vendor of the SoC platform.
+# The name must present in arch/$ARCH/boot/dts in the linux kernel tree!
+soc_vendor = "broadcom"
+
+# Device name (for humans).
+name = "Raspberry Pi 3B"
+
+# Model name of the device, can be same as human name.
+model = "Raspberry Pi 3 Model B"
+
+# The most relevant value of the compatible string in the root of the device
+# tree, if it has one.
+# For example, the device tree file of Raspberry Pi 5B defines the following:
+# / {
+#	compatible = "raspberrypi,5-model-b", "brcm,bcm2712";
+# }
+# We should take "raspberrypi,5-model-b" for this.
+compatible = "raspberrypi,3-model-b"
+
+# List of BSP packages to be installed.
+bsp_packages = [
+	"linux+kernel+rpi64+lts",
+	"rpi-firmware-boot"
+]
+
+# Type of the partition map.
+# Either "gpt" for GUID Partition Map, "mbr" for MBR Partition Map.
+#
+# Important:
+#
+# It is advised to use GPT if possible. Modern bootloader supports GPT and
+# GPT can contain up to 128 partitions without the Extended + Logical
+# hassle.
+
+# rpi-3b require MBR formatted MicroSD card
+partition_map = "mbr"
+
+# Number of the partitions.
+num_partitions = 2
+
+# Size of the uncompressed raw image, for each variant, in Mebibytes (MiB).
+[size]
+base = 6144
+desktop = 25000
+server = 6144
+
+# Arrary of partition objects.
+[[partitions]]
+# The number of the partiton, starting from 1.
+no = 1
+# Partitoin type.
+# For MBR, a single byte is used as the partition type.
+# For GPT, an UUID is used as the partition type. Known types have known
+# UUIDs allocated for them. The following values are accepted:
+# - esp or efi: UUID for EFI System Partiton (ESP), or 0xef on MBR.
+# - linux: UUID for Linux filesystem data (not Linux Root filesystem), or
+#   0x83 on MBR.
+# - swap: UUID for Linux swap partition, or 0x82 on MBR.
+# - Arbitrary UUID values. Can not specify on MBR.
+#
+# Important:
+# - It is advised to use ESP for the boot partition which uses FAT16/32
+#   filesystem.
+# - It is required NOT to use a dedicated swap partition, even if the
+#   swap partition is before the root filesystem (which will be
+#   enlarged to the actual size of the medium once flashed and booted).
+#   But even doing so creates several inconveniences. So please use a
+#   swap file.
+# - For MBR partition table, the number of partitions must not exceed 4.
+#   This is the hard limit, since MBR can contain up to 4 master partitions.
+#   This tool can not handle extended partition or logical partitions!
+#   So please use GPT if your device or bootloader supports it.
+type = "byte"
+# FAT32 with LBA
+byte = 0x0c
+# Usage of the filesystem. The following values are accepted:
+# - boot: This partition is used as a boot partition, which might
+#   contain the bootloader, kernel image and initramfs image.
+# - rootfs: This partition is used as the main system partition.
+# - swap: Causes an error. See the comments above.
+usage = "boot"
+# Partition size in 512-byte sectors.
+# It is advised to make the boot partition large enough to contain the
+# kernel and initramfs.
+# Use 0 for the rest of the partiton map.
+size_in_sectors = 1048576
+# Mountpoint
+mountpoint = "/boot/rpi"
+# Filesystem of the partition
+filesystem = "fat32"
+# Label of the partition (optional, GPT only).
+# This is recorded on the partition table itself, distinct from file
+# system labels.
+# label = "Boot"
+# Label of the filesystem, optional.
+fs_label = "Boot"
+
+# The second partition, which will be expanded to the whole disk once flashed
+# and booted.
+[[partitions]]
+no = 2
+type = "linux"
+size_in_sectors = 0
+mountpoint = "/"
+filesystem = "ext4"
+usage = "rootfs"
+fs_label = "AOSC OS"
+
+[[bootloader]]
+type = "script"
+name = "apply-bootloader.bash"
