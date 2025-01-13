@@ -8,12 +8,15 @@ gen_cmdline() {
 	echo "console=serial0,115200 console=tty1 root=PARTUUID=$ROOT_PARTUUID rw rootwait fsck.repair=yes" | tee /boot/rpi/cmdline.txt
 }
 
-kernel=$(ls /usr/lib/rpi64/kernel/)
+kernels=($(ls -A /usr/lib/rpi64/kernel/))
 echo "Installing kernel ..."
-cp -av /usr/lib/rpi64/kernel/"$kernel"/* /boot/rpi/
+cp -av /usr/lib/rpi64/kernel/"${kernels[-1]}"/* /boot/rpi/
 
 echo "Installing boot firmware ..."
 cp -av /usr/lib/rpi64/boot/* /boot/rpi/
+
+echo "Installing boot configuration ..."
+cp -av /usr/lib/rpi64/config/* /boot/rpi/
 
 echo "Generating cmdline.txt ..."
 gen_cmdline
