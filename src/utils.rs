@@ -257,28 +257,23 @@ where
 		DEFAULT_GROUPS
 	};
 	let groups = groups.join(",");
-	let mut cmd_useradd = Command::new("chroot");
-	let mut cmd_chpasswd = Command::new("chroot");
+	let mut cmd_useradd = Command::new("systemd-nspawn");
+	let mut cmd_chpasswd = Command::new("systemd-nspawn");
 	cmd_useradd
-		.arg(&root)
+		.args(["-D", &root])
+		.arg("--")
 		.arg("useradd")
-		.args(["-m", "-d", &homedir])
+		.arg("-m")
+		.args(["-k", "/etc/skel"])
+		.args(["-s", "/bin/bash"])
 		.args(["-G", &groups]);
 	if let Some(c) = comment {
 		cmd_useradd.args(["-c", c.as_ref()]);
 	}
 	cmd_useradd.arg(name);
-	cmd_chpasswd.stdin(Stdio::piped()).args([&root, "chpasswd"]);
+	cmd_chpasswd.args(["-D", &root, "--", "bash", "-c", &format!("echo \"{}:{}\" | chpasswd", name, password)]);
 	cmd_run_check_status(&mut cmd_useradd)?;
-	let mut chpasswd_proc = cmd_chpasswd.spawn().context("Failed to run chpasswd")?;
-	let chpasswd_stdin = chpasswd_proc
-		.stdin
-		.as_mut()
-		.context("Failed to open stdin for chpasswd")?;
-	// echo "$name:$password" | chpasswd -R /target/root
-	let chpasswd_buf = format!("{}:{}", name, password);
-	chpasswd_stdin.write_all(chpasswd_buf.as_bytes())?;
-	chpasswd_proc.wait()?;
+	cmd_run_check_status(&mut cmd_chpasswd)?;
 	Ok(())
 }
 
