@@ -396,6 +396,7 @@ pub struct PartitionSpec {
 	pub size_in_sectors: u64,
 	pub label: Option<String>,
 	pub mountpoint: Option<String>,
+	#[serde(default)]
 	pub filesystem: FilesystemType,
 	pub mount_opts: Option<Vec<String>>,
 	pub fs_label: Option<String>,
