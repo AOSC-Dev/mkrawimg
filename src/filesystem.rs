@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Speifies which filesystem to be formatted to a partition.
-#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum FilesystemType {
 	/// Linux extended filesystem version 4.
@@ -24,6 +24,7 @@ pub enum FilesystemType {
 	/// FAT32.
 	Fat32,
 	/// Not to be formatted.
+	#[default]
 	None,
 }
 
