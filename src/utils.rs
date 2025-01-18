@@ -266,6 +266,7 @@ where
 		.arg("-m")
 		.args(["-k", "/etc/skel"])
 		.args(["-s", "/bin/bash"])
+		.args(["-d", &homedir])
 		.args(["-G", &groups]);
 	if let Some(c) = comment {
 		cmd_useradd.args(["-c", c.as_ref()]);
