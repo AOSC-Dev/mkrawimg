@@ -44,7 +44,7 @@ impl FilesystemType {
 					}
 				}
 				_ => {
-					if l.as_bytes().len() > 63 {
+					if l.len() > 63 {
 						bail!("Filesystem labels are limited to up to 63 bytes.");
 					}
 				}
