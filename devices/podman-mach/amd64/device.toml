@@ -1,0 +1,48 @@
+id = "podman-mach-amd64"
+vendor = "podman"
+name = "Podman VM Platform (UEFI) on AMD64"
+arch = "amd64"
+bsp_packages = ["grub", "linux+kernel", "ignition"]
+kernel_cmdline = [
+	"rw",
+	"rd.auto",
+	"rd.auto=1",
+	"mitigations=off",
+	"audit=0",
+	"ibt=off",
+	"ignition.platform.id=qemu",
+]
+partition_map = "gpt"
+num_partitions = 3
+
+[size]
+base = 6144
+desktop = 6144
+server = 6144
+
+[[partition]]
+num = 1
+type = "bios_boot"
+usage = "boot"
+size_in_sectors = 16384
+start_sector = 2048
+
+[[partition]]
+num = 2
+type = "linux"
+usage = "boot"
+size_in_sectors = 614400
+mountpoint = "/boot"
+filesystem = "fat32"
+
+[[partition]]
+num = 3
+type = "linux"
+usage = "rootfs"
+size_in_sectors = 0
+mountpoint = "/"
+filesystem = "ext4"
+
+[[bootloader]]
+type = "script"
+name = "apply-bootloader.sh"
