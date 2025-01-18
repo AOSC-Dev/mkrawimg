@@ -252,7 +252,6 @@ impl ImageContext<'_> {
 			self.info("No postinst script found, skipping.");
 		}
 
-		self.save_topics(&rootdir)?;
 		Ok(())
 	}
 
@@ -509,6 +508,8 @@ impl ImageContext<'_> {
 		self.setup_chroot_mounts(&rootfs_mount, &mut mountpoint_stack)?;
 
 		self.write_spec_script(&loop_dev_path, &rootpart_dev, &rootfs_mount, &pm_data)?;
+
+		self.save_topics(&rootfs_mount)?;
 
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
