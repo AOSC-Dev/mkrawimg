@@ -38,7 +38,7 @@ pub enum PartitionType {
 	/// # or
 	/// type = "efi"
 	/// ```
-	#[serde(alias = "esp")]
+	#[serde(rename = "efi", alias = "esp")]
 	EFI,
 	/// Linux filesystem data
 	/// - MBR: `0x83`
