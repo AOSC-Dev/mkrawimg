@@ -7,6 +7,7 @@ pub const PARTTYPE_EFI_UUID: Uuid = uuid!("C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 pub const PARTTYPE_LINUX_UUID: Uuid = uuid!("0FC63DAF-8483-4772-8E79-3D69D8477DE4");
 pub const PARTTYPE_SWAP_UUID: Uuid = uuid!("0657FD6D-A4AB-43C4-84E5-0933C84B4F4F");
 pub const PARTTYPE_BASIC_UUID: Uuid = uuid!("EBD0A0A2-B9E5-4433-87C0-68B6B72699C7");
+pub const PARTTYPE_BIOS_BOOT_UUID: Uuid = uuid!("21686148-6449-6E6F-744E-656564454649");
 
 pub const PARTTYPE_EFI_BYTE: u8 = 0xEF;
 pub const PARTTYPE_LINUX_BYTE: u8 = 0x83;
@@ -73,6 +74,15 @@ pub enum PartitionType {
 	/// type = "basic"
 	/// ```
 	Basic,
+	/// BIOS boot partition
+	/// - If being used on a MBR partition table, the program will throw an error.
+	/// - GPT: `21686148-6449-6E6F-744E-656564454649`
+	///
+	/// ```toml
+	/// # other fields
+	/// type = "bios_boot"
+	/// ```
+	BiosBoot,
 	/// Arbitary UUID values.
 	///
 	/// If being used on a MBR partition table, the program will throw an error.
@@ -409,6 +419,7 @@ impl PartitionType {
 			Self::Linux => Ok(PARTTYPE_LINUX_BYTE),
 			Self::Swap => Ok(PARTTYPE_SWAP_BYTE),
 			Self::Basic => Ok(PARTTYPE_BASIC_BYTE),
+			Self::BiosBoot => Err(anyhow!("BIOS boot partitions are not allowed in MBR")),
 			// Disallow extended partitions.
 			Self::Byte { byte: 0x05 }
 			| Self::Byte { byte: 0xc5 }
@@ -427,6 +438,7 @@ impl PartitionType {
 			Self::Linux => Ok(PARTTYPE_LINUX_UUID),
 			Self::Swap => Ok(PARTTYPE_SWAP_UUID),
 			Self::Basic => Ok(PARTTYPE_BASIC_UUID),
+			Self::BiosBoot => Ok(PARTTYPE_BIOS_BOOT_UUID),
 			Self::Uuid { uuid } => Ok(*uuid),
 			Self::Byte { .. } => Err(anyhow!("Can not convert an MBR type to UUID.")),
 			Self::Nested { .. } => Err(anyhow!("Nested partition tables are not supported.")),
@@ -440,6 +452,7 @@ mod tests {
 	const TEST_LINUX: &str = r#"type = "linux""#;
 	const TEST_SWAP: &str = r#"type = "swap""#;
 	const TEST_BASIC: &str = r#"type = "basic""#;
+	const TEST_BIOS_BOOT: &str = r#"type = "bios_boot""#;
 	// const TEST_INVALID: &str = r#"type = "whatever""#;
 	const TEST_UUID: &str = "type = \"uuid\"\nuuid = \"933AC7E1-2EB4-4F13-B844-0E14E2AEF915\"";
 	const TEST_BYTE: &str = "type = \"byte\"\nbyte = 0x0c";
@@ -458,6 +471,7 @@ mod tests {
 		assert_eq!(get!(TEST_LINUX), Ok(PartitionType::Linux));
 		assert_eq!(get!(TEST_SWAP), Ok(PartitionType::Swap));
 		assert_eq!(get!(TEST_BASIC), Ok(PartitionType::Basic));
+		assert_eq!(get!(TEST_BIOS_BOOT), Ok(PartitionType::BiosBoot));
 		assert_eq!(
 			get!(TEST_UUID),
 			Ok(PartitionType::Uuid {
