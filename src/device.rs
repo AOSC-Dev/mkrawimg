@@ -643,7 +643,10 @@ impl DeviceSpec {
 		for partition in &self.partitions {
 			if let Some(start) = partition.start_sector {
 				if self.partition_map == PartitionMapType::GPT && start <= 33 {
-					bail!("Starting sector of partition {} overlaps the partition table itself.", partition.num);
+					bail!(
+						"Starting sector of partition {} overlaps the partition table itself.",
+						partition.num
+					);
 				}
 			}
 			if partition.part_type == PartitionType::Swap {
@@ -672,7 +675,10 @@ impl DeviceSpec {
 					bail!("MBR partition map does not allow partition labels, found one in partition {}", partition.num);
 				}
 				if l.len() > 35 {
-					bail!("Label for partition {} exceeds the 35-character limit", partition.num);
+					bail!(
+						"Label for partition {} exceeds the 35-character limit",
+						partition.num
+					);
 				}
 			}
 			last_partition_num = partition.num;
@@ -691,21 +697,20 @@ impl DeviceSpec {
 						}
 					}
 					BootloaderSpec::FlashPartition { path: _, partition } => {
-						if let Some(p) =
-							self.partitions.get(*partition as usize)
-						{
+						if let Some(p) = self.partitions.get(*partition as usize) {
 							if p.filesystem != FilesystemType::None {
 								bail!("A bootloader tries to write to partition {} which already contains an active filesystem.", p.num);
 							}
 						} else {
-							bail!("Partition {} specified by a bootloader is not found.", partition);
+							bail!(
+								"Partition {} specified by a bootloader is not found.",
+								partition
+							);
 						}
 					}
 					BootloaderSpec::FlashOffset { path: _, offset } => {
 						// Anything must start from at least LBA 34.
-						if self.partition_map == PartitionMapType::GPT
-							&& *offset < 512 * 34
-						{
+						if self.partition_map == PartitionMapType::GPT && *offset < 512 * 34 {
 							bail!("A bootloader tries to overlap the partition table. It must start from at least 0x4400 (17408), or LBA 34.");
 						}
 					}
@@ -718,20 +723,21 @@ impl DeviceSpec {
 	pub fn gen_kernel_cmdline(&self, pm_data: &PartitionMapData) -> Result<String> {
 		let str = if let Some(cmdline) = self.kernel_cmdline.as_ref() {
 			let mut str = String::new();
-			let root_part = self.partitions.iter().find(|x| x.usage == PartitionUsage::Rootfs).context("Unable to find a root filesystem to generate kernel command line")?;
+			let root_part = self
+				.partitions
+				.iter()
+				.find(|x| x.usage == PartitionUsage::Rootfs)
+				.context("Unable to find a root filesystem to generate kernel command line")?;
 			let root_param = if self.initrdless {
 				format!(
 					"root=PARTUUID={} ",
-					&pm_data.data
-						.get(&root_part.num)
-						.as_ref()
-						.unwrap()
-						.part_uuid
+					&pm_data.data.get(&root_part.num).as_ref().unwrap().part_uuid
 				)
 			} else {
 				format!(
 					"root=UUID={} ",
-					&pm_data.data
+					&pm_data
+						.data
 						.get(&root_part.num)
 						.as_ref()
 						.unwrap()
@@ -926,8 +932,7 @@ impl ImageContext<'_> {
 	pub fn partition_mbr(&self, img: &Path) -> Result<PartitionMapData> {
 		let mut fd = File::options().write(true).open(img)?;
 		let sector_size =
-			TryInto::<u32>::try_into(gptman::linux::get_sector_size(&mut fd)?)
-				.unwrap_or(512);
+			TryInto::<u32>::try_into(gptman::linux::get_sector_size(&mut fd)?).unwrap_or(512);
 		let random_id: u32 = rand::random();
 		let disk_signature = random_id.to_le_bytes();
 		let disk_signature_str = format!("{:08x}", random_id);
@@ -1057,36 +1062,23 @@ KERNEL_CMDLINE='{7}'
 				part_data.num, part_data.part_uuid,
 			);
 			if part.usage == PartitionUsage::Rootfs {
-				script +=
-					&format!("ROOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+				script += &format!("ROOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
 			} else if part.usage == PartitionUsage::Boot {
-				script +=
-					&format!("BOOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+				script += &format!("BOOT_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
 			}
 			if part.part_type == PartitionType::EFI {
-				script +=
-					&format!("EFI_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
+				script += &format!("EFI_PARTUUID=\"$PART{0}_PARTUUID\"\n", part.num);
 			}
 			// We might not have a filesystem UUID under some circumstances
 			if let Some(fsuuid) = &part_data.fs_uuid {
-				script +=
-					&format!("PART{0}_FSUUID='{1}'\n", part_data.num, &fsuuid);
+				script += &format!("PART{0}_FSUUID='{1}'\n", part_data.num, &fsuuid);
 				if part.usage == PartitionUsage::Rootfs {
-					script += &format!(
-						"ROOT_FSUUID=\"$PART{0}_FSUUID\"\n",
-						part.num
-					);
+					script += &format!("ROOT_FSUUID=\"$PART{0}_FSUUID\"\n", part.num);
 				} else if part.usage == PartitionUsage::Boot {
-					script += &format!(
-						"BOOT_FSUUID=\"$PART{0}_FSUUID\"\n",
-						part.num
-					);
+					script += &format!("BOOT_FSUUID=\"$PART{0}_FSUUID\"\n", part.num);
 				}
 				if part.part_type == PartitionType::EFI {
-					script += &format!(
-						"EFI_FSUUID=\"$PART{0}_FSUUID\"\n",
-						part.num
-					);
+					script += &format!("EFI_FSUUID=\"$PART{0}_FSUUID\"\n", part.num);
 				}
 			}
 		}
@@ -1112,15 +1104,20 @@ KERNEL_CMDLINE='{7}'
 		let mut content = String::from("\n# ---- Auto generated by mkrawimg ----\n");
 		for partition in &self.device.partitions {
 			if let Some(mountpoint) = &partition.mountpoint {
-				let part_data =
-					pm_data.data.get(&partition.num).context(format!(
-						"Unable to get partition data for partition {}",
-						partition.num
-					))?;
+				let part_data = pm_data.data.get(&partition.num).context(format!(
+					"Unable to get partition data for partition {}",
+					partition.num
+				))?;
 				let src = if self.device.initrdless {
 					format!("PARTUUID=\"{0}\"", &part_data.part_uuid)
 				} else {
-					format!("UUID=\"{0}\"", &part_data.fs_uuid.as_ref().context("Partition with a mountpoint must have a valid filesystem")?)
+					format!(
+						"UUID=\"{0}\"",
+						&part_data
+							.fs_uuid
+							.as_ref()
+							.context("Partition with a mountpoint must have a valid filesystem")?
+					)
 				};
 				// dst = mountpoint
 				// `genfstab(8)` uses the options field in `/proc/mounts`, which is the expanded result from `defaults`.
@@ -1201,9 +1198,7 @@ mod tests {
 		let walker = walkdir::WalkDir::new("devices").max_depth(4).into_iter();
 		for e in walker {
 			let e = e?;
-			if e.path().is_dir()
-				|| e.path().file_name() != Some(OsStr::new("device.toml"))
-			{
+			if e.path().is_dir() || e.path().file_name() != Some(OsStr::new("device.toml")) {
 				continue;
 			}
 			info!("Parsing {} ...", e.path().display().bright_cyan());

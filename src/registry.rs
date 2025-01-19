@@ -102,14 +102,20 @@ impl DeviceRegistry {
 			let aliases = dev.aliases.clone();
 			if hashmap.contains_key(&id) {
 				let occupant_idx = hashmap.get(&id).unwrap();
-				let occupant: &DeviceSpec =
-					devices.get(*occupant_idx).context(format!(
-						"Can not get the device which occupies the ID '{}'",
-						id
-					))?;
-				return Err(anyhow!("Device ID \"{}\" already exists (used by device \"{}\" ({})).\n\
+				let occupant: &DeviceSpec = devices.get(*occupant_idx).context(format!(
+					"Can not get the device which occupies the ID '{}'",
+					id
+				))?;
+				return Err(anyhow!(
+					"Device ID \"{}\" already exists (used by device \"{}\" ({})).\n\
 						Please view the following files to decide what to do:\n- {}\n- {}",
-					id, occupant.name, occupant.id, p.display(), &occupant.file_path.as_path().display())).context("Error occurred while assembling the device registry");
+					id,
+					occupant.name,
+					occupant.id,
+					p.display(),
+					&occupant.file_path.as_path().display()
+				))
+				.context("Error occurred while assembling the device registry");
 			}
 			devices.push(dev);
 			hashmap.insert(id.clone(), devices.len() - 1);
@@ -117,7 +123,10 @@ impl DeviceRegistry {
 				for alias in arr {
 					if hashmap.contains_key(&alias) {
 						let occupant_idx = hashmap.get(&alias).unwrap();
-						let occupant: &DeviceSpec = devices.get(*occupant_idx).context(format!("Can not get the device which uses the alias {}", alias))?;
+						let occupant: &DeviceSpec = devices.get(*occupant_idx).context(format!(
+							"Can not get the device which uses the alias {}",
+							alias
+						))?;
 						return Err(anyhow!("Alias \"{}\" for device \"{}\" ({}) has been used by device \"{}\" ({})\n.\
 						Please view the following files to decide what to do:\n- {}- \n{}",
 							alias, name, &id, occupant.name, occupant.id, p.display(), &occupant.file_path.as_path().display()));

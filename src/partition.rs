@@ -415,9 +415,7 @@ impl PartitionType {
 			| Self::Byte { byte: 0x85 }
 			| Self::Byte { byte: 0x0f } => Err(anyhow!("Extended partitions are not allowed.")),
 			Self::Byte { byte } => Ok(*byte),
-			Self::Uuid { .. } => {
-				Err(anyhow!("Can not convert an arbitrary byte to UUID."))
-			}
+			Self::Uuid { .. } => Err(anyhow!("Can not convert an arbitrary byte to UUID.")),
 			Self::Nested { .. } => {
 				unimplemented!("Nested partition tables are not supported.")
 			}
@@ -431,9 +429,7 @@ impl PartitionType {
 			Self::Basic => Ok(PARTTYPE_BASIC_UUID),
 			Self::Uuid { uuid } => Ok(*uuid),
 			Self::Byte { .. } => Err(anyhow!("Can not convert an MBR type to UUID.")),
-			Self::Nested { .. } => {
-				Err(anyhow!("Nested partition tables are not supported."))
-			}
+			Self::Nested { .. } => Err(anyhow!("Nested partition tables are not supported.")),
 		}
 	}
 }

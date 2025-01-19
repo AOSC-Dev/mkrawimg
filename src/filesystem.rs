@@ -59,9 +59,7 @@ impl FilesystemType {
 			FilesystemType::Xfs => Ok("xfs"),
 			FilesystemType::Btrfs => Ok("btrfs"),
 			FilesystemType::Fat16 | FilesystemType::Fat32 => Ok("vfat"),
-			FilesystemType::None => {
-				Err(anyhow!("It is instructed to not being formatted"))
-			}
+			FilesystemType::None => Err(anyhow!("It is instructed to not being formatted")),
 		}
 	}
 

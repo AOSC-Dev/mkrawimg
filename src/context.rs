@@ -138,8 +138,7 @@ impl ImageContext<'_> {
 					.data(&opts);
 				mount.mount(src_dir, &dst_dir)?;
 			} else {
-				let mount = Mount::builder()
-					.fstype(partition.filesystem.get_os_fstype()?);
+				let mount = Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
 				mount.mount(src_dir, &dst_dir)?;
 			};
 			stack.push(dst_dir.to_string_lossy().to_string());
@@ -163,14 +162,12 @@ impl ImageContext<'_> {
 				continue;
 			}
 			if let Some(mp) = &partition.mountpoint {
-				let src_dir =
-					format!("{}p{}", loop_dev.to_string_lossy(), partition.num);
+				let src_dir = format!("{}p{}", loop_dev.to_string_lossy(), partition.num);
 				let src_dir = Path::new(&src_dir);
 				// Joining paths with a leading slash replaces the whole path
 				let dst_dir = rootdir.join(mp.trim_start_matches('/'));
 				create_dir_all(&dst_dir)?;
-				let mount = Mount::builder()
-					.fstype(partition.filesystem.get_os_fstype()?);
+				let mount = Mount::builder().fstype(partition.filesystem.get_os_fstype()?);
 				mount.mount(src_dir, &dst_dir)?;
 				stack.push(dst_dir.to_string_lossy().to_string());
 			}
@@ -225,10 +222,11 @@ impl ImageContext<'_> {
 		set_locale(rootdir, "en_US.UTF-8")?;
 		self.set_hostname(&rootdir)?;
 
-		let postinst_script_dir =
-			self.device.file_path.parent().context(
-				"Unable to find the directory containing the device spec",
-			)?;
+		let postinst_script_dir = self
+			.device
+			.file_path
+			.parent()
+			.context("Unable to find the directory containing the device spec")?;
 		let mut postinst_script_path = postinst_script_dir.join("postinst.bash");
 		if !postinst_script_path.is_file() {
 			postinst_script_path = postinst_script_dir.join("postinst.sh");
@@ -249,12 +247,7 @@ impl ImageContext<'_> {
 			let dst_path = &rootdir.join("tmp").join(filename);
 			std::fs::copy(&postinst_script_path, dst_path)
 				.context("Failed to copy the post installation script")?;
-			run_script_with_chroot(
-				rootdir,
-				&Path::new("/tmp").join(filename),
-				binds,
-				None,
-			)?;
+			run_script_with_chroot(rootdir, &Path::new("/tmp").join(filename), binds, None)?;
 		} else {
 			self.info("No postinst script found, skipping.");
 		}
@@ -280,7 +273,10 @@ impl ImageContext<'_> {
 
 		match &self.compress {
 			Compression::None => {
-				self.info(format!("Not compressing the raw image as instructed, copying the raw image to {} ...", &to.display()));
+				self.info(format!(
+					"Not compressing the raw image as instructed, copying the raw image to {} ...",
+					&to.display()
+				));
 			}
 			_ => {
 				self.info(format!(
@@ -289,10 +285,7 @@ impl ImageContext<'_> {
 					&self.compress
 				));
 				if self.compress != &Compression::Gzip {
-					self.info(format!(
-						"Using {} threads for compression",
-						num_cpus
-					));
+					self.info(format!("Using {} threads for compression", num_cpus));
 				}
 			}
 		}
@@ -328,10 +321,8 @@ impl ImageContext<'_> {
 			Compression::Gzip => {
 				self.warn("Caution! GZip does not support multi-threading. Compression will be very slow.");
 				let bufreader = BufReader::with_capacity(1048576, from_fd);
-				let mut encoder = flate2::bufread::GzEncoder::new(
-					bufreader,
-					flate2::Compression::new(9),
-				);
+				let mut encoder =
+					flate2::bufread::GzEncoder::new(bufreader, flate2::Compression::new(9));
 				let mut bufwriter = BufWriter::with_capacity(1048576, to_fd);
 				start = Instant::now();
 				copy(&mut encoder, &mut bufwriter)?;
@@ -362,9 +353,7 @@ impl ImageContext<'_> {
 		if let Some(topics) = &self.topics {
 			self.info("Saving topics ...");
 			save_topics(rootdir.as_ref(), topics)?;
-			if !self.device.arch.is_native()
-				&& self.device.arch == DeviceArch::Mips64r6el
-			{
+			if !self.device.arch.is_native() && self.device.arch == DeviceArch::Mips64r6el {
 				APT::upgrade_system(rootdir)?;
 			} else {
 				Oma::upgrade_system(rootdir)?;
@@ -512,11 +501,7 @@ impl ImageContext<'_> {
 		self.info("Installing system distribution ...");
 		draw_progressbar("Installing base distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_mount)?;
-		self.mount_partitions_in_root(
-			&loop_dev_path,
-			&rootfs_mount,
-			&mut mountpoint_stack,
-		)?;
+		self.mount_partitions_in_root(&loop_dev_path, &rootfs_mount, &mut mountpoint_stack)?;
 		self.info("Generating fstab ...");
 		self.generate_fstab(&pm_data, &rootfs_mount)?;
 

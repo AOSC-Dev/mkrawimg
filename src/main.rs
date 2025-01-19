@@ -294,7 +294,10 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			info!("Relative path detected, assuming it's within the registry directory.");
 			DeviceRegistry::from(registry_dir.join(try_path))?
 		} else {
-			info!("Device ID or alias '{}' provided. Assembling the full registry ...", &device_str);
+			info!(
+				"Device ID or alias '{}' provided. Assembling the full registry ...",
+				&device_str
+			);
 			DeviceRegistry::scan(registry_dir)?
 		}
 	} else {
@@ -409,21 +412,14 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				let variant_str = variant.to_string().to_lowercase();
 				for device in devices.as_slice() {
 					let arch = device.arch;
-					let bootstrap_path =
-						Path::new(&cmdline.workdir).join(format!(
-							"bootstrap/{}-{}",
-							&variant_str,
-							arch.to_string().to_lowercase()
-						));
-					if !bootstrap_path.is_dir()
-						|| !(bootstrap_path.join("etc/os-release")).exists()
+					let bootstrap_path = Path::new(&cmdline.workdir).join(format!(
+						"bootstrap/{}-{}",
+						&variant_str,
+						arch.to_string().to_lowercase()
+					));
+					if !bootstrap_path.is_dir() || !(bootstrap_path.join("etc/os-release")).exists()
 					{
-						bootstrap_distribution(
-							variant,
-							bootstrap_path,
-							arch,
-							&cmdline.mirror,
-						)?;
+						bootstrap_distribution(variant, bootstrap_path, arch, &cmdline.mirror)?;
 					}
 				}
 			}
@@ -479,20 +475,20 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				let uid = uid
 					.map(|x| {
 						x.parse::<u32>().with_context(|| {
-							format!("Failed to parse $SUDO_UID '{}' into integer",
-						&x)
+							format!("Failed to parse $SUDO_UID '{}' into integer", &x)
 						})
 					})
 					.transpose()?;
 				let gid = gid
 					.map(|x| {
 						x.parse::<u32>().with_context(|| {
-							format!("Failed to parse $SUDO_GID '{}' into integer",
-						&x)
+							format!("Failed to parse $SUDO_GID '{}' into integer", &x)
 						})
 					})
 					.transpose()?;
-				info!("This tool is running with sudo, fixing ownership of the output directory ...");
+				info!(
+					"This tool is running with sudo, fixing ownership of the output directory ..."
+				);
 				return_ownership_recursive(&cmdline.outdir, uid, gid)?;
 			}
 			info!("Output directory: {}", &cmdline.outdir.display());
