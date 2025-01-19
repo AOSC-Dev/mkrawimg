@@ -44,8 +44,7 @@ impl PackageManager for APT {
 			"--",
 		]);
 		argv.extend_from_slice(packages);
-		let mut script =
-			String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
+		let mut script = String::from("export DEBIAN_FRONTEND=noninteractive;apt-get update;");
 		script += &argv.join(" ");
 		// chroot $CONTAINER bash -c "export DEBIAN_FRONTEND=noninteractive;apt-get install --yes -o Dpkg::Options::=--force-confnew pkgs ..."
 		// Block device access is only available to post-installation script and bootloader scripts.
@@ -54,7 +53,12 @@ impl PackageManager for APT {
 	}
 
 	fn upgrade_system(container: &dyn AsRef<Path>) -> Result<()> {
-		run_str_script_with_chroot(container, "export DEBIAN_FRONTEND=noninteractive;apt-get update;apt-get full-upgrade --yes", &[], None)?;
+		run_str_script_with_chroot(
+			container,
+			"export DEBIAN_FRONTEND=noninteractive;apt-get update;apt-get full-upgrade --yes",
+			&[],
+			None,
+		)?;
 		run_str_script_with_chroot(container, "apt clean", &[], None)
 	}
 }
@@ -96,27 +100,19 @@ fn install_packages_aosc(
 		Oma::install(packages, container)
 	} else {
 		match arch {
-			DeviceArch::Mips64r6el => {
-				APT::install(packages, container)
-			}
+			DeviceArch::Mips64r6el => APT::install(packages, container),
 			_ => Oma::install(packages, container),
 		}
 	}
 }
 
 impl ImageContext<'_> {
-	pub fn install_packages<P: AsRef<Path>>(
-		&self,
-		packages: &[&str],
-		container: P,
-	) -> Result<()> {
+	pub fn install_packages<P: AsRef<Path>>(&self, packages: &[&str], container: P) -> Result<()> {
 		if packages.is_empty() {
 			return Ok(());
 		}
 		match &self.device.distro {
-			Distro::AOSC => {
-				install_packages_aosc(packages, &container, &self.device.arch)?
-			}
+			Distro::AOSC => install_packages_aosc(packages, &container, &self.device.arch)?,
 			Distro::Debian => todo!(),
 			Distro::Ubuntu => todo!(),
 			Distro::ArchLinux => todo!(),

@@ -271,7 +271,14 @@ where
 		cmd_useradd.args(["-c", c.as_ref()]);
 	}
 	cmd_useradd.arg(name);
-	cmd_chpasswd.args(["-D", &root, "--", "bash", "-c", &format!("echo \"{}:{}\" | chpasswd", name, password)]);
+	cmd_chpasswd.args([
+		"-D",
+		&root,
+		"--",
+		"bash",
+		"-c",
+		&format!("echo \"{}:{}\" | chpasswd", name, password),
+	]);
 	cmd_run_check_status(&mut cmd_useradd)?;
 	cmd_run_check_status(&mut cmd_chpasswd)?;
 	Ok(())
