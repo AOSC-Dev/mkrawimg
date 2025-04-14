@@ -13,12 +13,12 @@ bsp_packages = [
 
 kernel_cmdline = ["rw", "console=tty0", "console=ttyS0,115200", "earlycon", "rootwait", "stmmaceth=chain_mode:1", "selinux=0"]
 partition_map = "gpt"
-num_partitions = 4
+num_partitions = 5
 
 [size]
-base = 6144
+base = 7400
 desktop = 25000
-server = 6144
+server = 7400
 
 # U-Boot SPL
 [[partition]]
@@ -42,12 +42,20 @@ filesystem = "none"
 num = 3
 type = "esp"
 usage = "boot"
-size_in_sectors = 307200
+size_in_sectors = 32768
 filesystem = "fat32"
-mountpoint = "/boot/u-boot"
+mountpoint = "/efi"
 
 [[partition]]
 num = 4
+type = "linux"
+usage = "boot"
+size_in_sectors = 4194304
+filesystem = "ext4"
+mountpoint = "/boot"
+
+[[partition]]
+num = 5
 type = "linux"
 usage = "rootfs"
 size_in_sectors = 0
