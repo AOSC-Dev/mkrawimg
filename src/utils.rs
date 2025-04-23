@@ -133,10 +133,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	// Recover the terminal
 	restore_term();
 	if status.success() {
-		info!(
-			"Successfully bootstrapped {} distribution.",
-			variant.to_string()
-		);
+		info!("Successfully bootstrapped {} distribution.", variant);
 		Ok(())
 	} else if let Some(c) = status.code() {
 		Err(anyhow!("aoscbootstrap exited unsuccessfully (code {})", c))
