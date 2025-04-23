@@ -2,7 +2,7 @@
 //!
 //! See [`DeviceRegistry`] for details.
 use crate::{cli::ListFormat, device::DeviceSpec};
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use log::{debug, error, info};
 use owo_colors::OwoColorize;
 use std::{
@@ -127,9 +127,17 @@ impl DeviceRegistry {
 							"Can not get the device which uses the alias {}",
 							alias
 						))?;
-						return Err(anyhow!("Alias \"{}\" for device \"{}\" ({}) has been used by device \"{}\" ({})\n.\
+						return Err(anyhow!(
+							"Alias \"{}\" for device \"{}\" ({}) has been used by device \"{}\" ({})\n.\
 						Please view the following files to decide what to do:\n- {}- \n{}",
-							alias, name, &id, occupant.name, occupant.id, p.display(), &occupant.file_path.as_path().display()));
+							alias,
+							name,
+							&id,
+							occupant.name,
+							occupant.id,
+							p.display(),
+							&occupant.file_path.as_path().display()
+						));
 					}
 					hashmap.insert(alias.clone(), devices.len() - 1);
 				}
@@ -169,7 +177,9 @@ impl DeviceRegistry {
 			);
 			PathBuf::from(path)
 		} else {
-			bail!("Custom path should be either a directory that contains a device.toml or the device.toml itself.");
+			bail!(
+				"Custom path should be either a directory that contains a device.toml or the device.toml itself."
+			);
 		};
 		let device: DeviceSpec = toml::from_str(&fs::read_to_string(&devicetoml)?)?;
 		let name = &device.name;

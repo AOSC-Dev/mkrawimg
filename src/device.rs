@@ -52,11 +52,11 @@ use crate::{
 	partition::{PartitionSpec, PartitionType, PartitionUsage},
 	pm::Distro,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
-use gptman::{GPTPartitionEntry, GPT};
+use gptman::{GPT, GPTPartitionEntry};
 use log::debug;
-use mbrman::{MBRPartitionEntry, CHS, MBR};
+use mbrman::{CHS, MBR, MBRPartitionEntry};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -672,7 +672,10 @@ impl DeviceSpec {
 			}
 			if let Some(l) = &partition.label {
 				if self.partition_map == PartitionMapType::MBR {
-					bail!("MBR partition map does not allow partition labels, found one in partition {}", partition.num);
+					bail!(
+						"MBR partition map does not allow partition labels, found one in partition {}",
+						partition.num
+					);
 				}
 				if l.len() > 35 {
 					bail!(
@@ -693,13 +696,19 @@ impl DeviceSpec {
 					BootloaderSpec::Script { name } => {
 						let script_path = dirname.join(name);
 						if !script_path.is_file() {
-							bail!("Script '{}' not found within the same directory as the device.toml", &name);
+							bail!(
+								"Script '{}' not found within the same directory as the device.toml",
+								&name
+							);
 						}
 					}
 					BootloaderSpec::FlashPartition { path: _, partition } => {
 						if let Some(p) = self.partitions.get(*partition as usize) {
 							if p.filesystem != FilesystemType::None {
-								bail!("A bootloader tries to write to partition {} which already contains an active filesystem.", p.num);
+								bail!(
+									"A bootloader tries to write to partition {} which already contains an active filesystem.",
+									p.num
+								);
 							}
 						} else {
 							bail!(
@@ -711,7 +720,9 @@ impl DeviceSpec {
 					BootloaderSpec::FlashOffset { path: _, offset } => {
 						// Anything must start from at least LBA 34.
 						if self.partition_map == PartitionMapType::GPT && *offset < 512 * 34 {
-							bail!("A bootloader tries to overlap the partition table. It must start from at least 0x4400 (17408), or LBA 34.");
+							bail!(
+								"A bootloader tries to overlap the partition table. It must start from at least 0x4400 (17408), or LBA 34."
+							);
 						}
 					}
 				}

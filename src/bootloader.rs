@@ -10,7 +10,7 @@
 //!
 use std::{
 	fs::File,
-	io::{copy, BufReader, Seek},
+	io::{BufReader, Seek, copy},
 	path::{Path, PathBuf},
 };
 

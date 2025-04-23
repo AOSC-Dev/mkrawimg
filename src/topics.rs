@@ -1,10 +1,10 @@
 use std::{
-	fs::{create_dir_all, File},
+	fs::{File, create_dir_all},
 	io::Write,
 	path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use log::info;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};

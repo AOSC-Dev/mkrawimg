@@ -1,7 +1,7 @@
 use crate::{device::PartitionMapType, filesystem::FilesystemType};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use uuid::{uuid, Uuid};
+use uuid::{Uuid, uuid};
 
 pub const PARTTYPE_EFI_UUID: Uuid = uuid!("C12A7328-F81F-11D2-BA4B-00A0C93EC93B");
 pub const PARTTYPE_LINUX_UUID: Uuid = uuid!("0FC63DAF-8483-4772-8E79-3D69D8477DE4");

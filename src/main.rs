@@ -155,7 +155,7 @@ use std::{
 };
 
 use anyhow::bail;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
 use clap::Parser;
 use cli::Action;
@@ -189,8 +189,10 @@ fn main() -> Result<()> {
 	})
 	.context("Can not register Ctrl-C (SIGTERM) handler.")?;
 
-	std::env::set_var("LANG", "C");
-	std::env::set_var("LC_ALL", "C");
+	unsafe {
+		std::env::set_var("LANG", "C");
+		std::env::set_var("LC_ALL", "C");
+	}
 
 	// Parse the command line
 	let cmdline = Cmdline::try_parse()?;
@@ -274,12 +276,14 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 		));
 	};
 	let device_str = match &action {
-		cli::Action::Build { ref device, .. } => {
+		cli::Action::Build { device, .. } => {
 			buildmode = BuildMode::BuildOne;
 			Some(device.to_owned())
 		}
 		cli::Action::BuildAll { .. } => {
-			warn!("Attempting to build images for all devices. Make sure this is what you want to do.");
+			warn!(
+				"Attempting to build images for all devices. Make sure this is what you want to do."
+			);
 			buildmode = BuildMode::BuildAll;
 			None
 		}
@@ -446,7 +450,11 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				match remove_dir_all(&sketch_dir) {
 					Ok(_) => (),
 					Err(e) => {
-						warn!("Unable to remove the directory {}: {}\nYou have to remove them manually.", &sketch_dir.display(), e);
+						warn!(
+							"Unable to remove the directory {}: {}\nYou have to remove them manually.",
+							&sketch_dir.display(),
+							e
+						);
 					}
 				}
 			}
@@ -456,7 +464,11 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				match remove_dir_all(&bootstrap_dir) {
 					Ok(_) => (),
 					Err(e) => {
-						warn!("Unable to remove the directory {}: {}\nYou have to remove them manually.", &bootstrap_dir.display(), e);
+						warn!(
+							"Unable to remove the directory {}: {}\nYou have to remove them manually.",
+							&bootstrap_dir.display(),
+							e
+						);
 					}
 				}
 			}
@@ -465,7 +477,11 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				match remove_dir(&cmdline.workdir) {
 					Ok(_) => (),
 					Err(e) => {
-						warn!("Unable to remove the working directory {}: {}\nYou have to remove them manually.", &cmdline.workdir.display(), e);
+						warn!(
+							"Unable to remove the working directory {}: {}\nYou have to remove them manually.",
+							&cmdline.workdir.display(),
+							e
+						);
 					}
 				}
 			}
