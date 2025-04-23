@@ -1,7 +1,7 @@
 use core::time;
 use std::{
-	fs::{create_dir_all, File},
-	io::{copy, BufReader, BufWriter, Write},
+	fs::{File, create_dir_all},
+	io::{BufReader, BufWriter, Write, copy},
 	path::{Path, PathBuf},
 	thread,
 	time::{Duration, Instant},
@@ -12,19 +12,19 @@ use crate::{
 	device::{DeviceArch, DeviceSpec, PartitionMapData, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
-	pm::{Distro, Oma, PackageManager, APT},
-	topics::{save_topics, Topic},
+	pm::{APT, Distro, Oma, PackageManager},
+	topics::{Topic, save_topics},
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
 		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
 	},
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
-use sys_mount::{unmount, Mount, UnmountFlags};
+use sys_mount::{Mount, UnmountFlags, unmount};
 use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
@@ -318,7 +318,9 @@ impl ImageContext<'_> {
 				duration = start.elapsed();
 			}
 			Compression::Gzip => {
-				self.warn("Caution! GZip does not support multi-threading. Compression will be very slow.");
+				self.warn(
+					"Caution! GZip does not support multi-threading. Compression will be very slow.",
+				);
 				let bufreader = BufReader::with_capacity(1048576, from_fd);
 				let mut encoder =
 					flate2::bufread::GzEncoder::new(bufreader, flate2::Compression::new(9));

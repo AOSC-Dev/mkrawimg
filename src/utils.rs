@@ -1,5 +1,5 @@
 use std::{
-	ffi::{c_int, c_void, CString},
+	ffi::{CString, c_int, c_void},
 	fs::File,
 	io::{Seek, Write},
 	os::unix::fs::chown,
@@ -7,9 +7,9 @@ use std::{
 	process::{Command, Stdio},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use blkid::prober::ProbeState;
-use libc::{close, open, O_NONBLOCK, O_RDONLY};
+use libc::{O_NONBLOCK, O_RDONLY, close, open};
 use log::{debug, info};
 use termsize::Size;
 use walkdir::WalkDir;
@@ -17,7 +17,7 @@ use walkdir::WalkDir;
 use crate::{context::ImageVariant, device::DeviceArch};
 
 #[link(name = "c")]
-extern "C" {
+unsafe extern "C" {
 	#[allow(dead_code)]
 	pub fn geteuid() -> c_int;
 	#[allow(dead_code)]
@@ -311,7 +311,10 @@ pub fn check_binfmt(arch: &DeviceArch) -> Result<()> {
 	}
 	let path = binfmt_path.join(name);
 	if !path.is_file() {
-		bail!("{} is not found in registered binfmt_misc targets.\nPlease make sure QEMU static and binfmt file for this target are installed.", name);
+		bail!(
+			"{} is not found in registered binfmt_misc targets.\nPlease make sure QEMU static and binfmt file for this target are installed.",
+			name
+		);
 	}
 	Ok(())
 }
