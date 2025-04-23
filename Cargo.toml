@@ -16,7 +16,7 @@ flate2 = "1.0.35"
 gptman = "1.1.2"
 libc = "0.2.168"
 log = { version = "0.4.22", features = ["std"] }
-loopdev = { git = "https://github.com/mdaffin/loopdev", version = "0.5.0" }
+loopdev = { version = "0.5", package = "loopdev-3" }
 mbrman = "0.5.2"
 num_cpus = "1.16.0"
 owo-colors = { version = "4.1.0", features = ["supports-colors"] }
