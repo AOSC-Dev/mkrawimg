@@ -80,7 +80,7 @@ sudo ./target/release/mkrawimg build --variants VARIANTS -- DEVICE
 For example:
 
 ```shell
-sudo ./target/releases/mkrawimg build -V desktop -- rpi-5b
+sudo ./target/release/mkrawimg build -V desktop -- rpi-5b
 ```
 
 ### Build Images for All Devices (in the registry)
