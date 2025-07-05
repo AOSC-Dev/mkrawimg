@@ -1,0 +1,31 @@
+id = "2k0300"
+
+vendor = "loongson"
+
+arch = "loongarch64"
+
+name = "Generic LS2K0300 Board"
+
+bsp_packages = [
+    "linux+kernel+2k0300"
+]
+
+initrdless = true
+
+partition_map = "dos"
+
+num_partitions = 1
+
+[size]
+base = 3072
+desktop = 3072
+server = 3072
+
+[[partition]]
+no = 1
+type = "linux"
+size_in_sectors = 0
+mountpoint = "/"
+filesystem = "ext4"
+usage = "rootfs"
+fs_label = "AOSC OS"
