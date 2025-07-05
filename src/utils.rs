@@ -82,10 +82,16 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	variant: &ImageVariant,
 	path: P,
 	arch: DeviceArch,
-	mirror: S,
+	mirror: Option<S>,
+	sources_list: Option<P>,
 ) -> Result<()> {
 	let path = path.as_ref();
 	let mirror = mirror.as_ref();
+	let sources_list = sources_list.as_ref();
+
+	if sources_list.is_some() && mirror.is_some() {
+		info!("--sources-list is provided, will ignore mirror option...");
+	}
 
 	// Display a progressbar
 	setup_scroll_region();
@@ -104,10 +110,18 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 		path.display()
 	);
 	let mut command = Command::new("aoscbootstrap");
+	let command = if let Some(sources_list) = sources_list {
+		command.args(["--sources-list", sources_list.as_ref().to_str().unwrap()])
+	} else if let Some(mirror) = mirror {
+		command
+			.args(["--branch", "stable"])
+			.args(["--mirror", mirror.as_ref()])
+	} else {
+		command.args(["--branch", "stable"])
+	};
 	let command = command
-		.arg("stable")
+		.arg("--target")
 		.arg(path)
-		.arg(mirror)
 		.arg("-x")
 		.args([
 			"--config",
@@ -128,7 +142,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 			),
 		]);
 
-	debug!("Runnig command {:?} ...", command);
+	debug!("Running command {:?} ...", command);
 	let status = command.status().context("Failed to run aoscbootstrap")?;
 	// Recover the terminal
 	restore_term();
