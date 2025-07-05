@@ -85,11 +85,13 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	mirror: Option<S>,
 	sources_list: Option<P>,
 	recipe_list: Option<P>,
+	tar_gz_path: Option<P>,
 ) -> Result<()> {
 	let path = path.as_ref();
 	let mirror = mirror.as_ref();
 	let sources_list = sources_list.as_ref();
 	let recipe_list = recipe_list.as_ref();
+	let tar_gz_path = tar_gz_path.as_ref();
 
 	if sources_list.is_some() && mirror.is_some() {
 		info!("--sources-list is provided, will ignore mirror option...");
@@ -152,6 +154,12 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 				}
 			),
 		])
+	};
+	let command = if let Some(tar_gz_path) = tar_gz_path {
+		command.args(["--export-tar-gz", tar_gz_path.as_ref().to_str().unwrap()])
+	}
+	else {
+		command
 	};
 	info!("Running command {:?} ...", command);
 	let status = command.status().context("Failed to run aoscbootstrap")?;
