@@ -1,0 +1,2 @@
+deb https://repo-hk.aosc.io/debs stable bsp-loongarch64-nosimd
+deb [arch=all] https://repo-hk.aosc.io/debs stable main
