@@ -84,13 +84,19 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	arch: DeviceArch,
 	mirror: Option<S>,
 	sources_list: Option<P>,
+	recipe_list: Option<P>,
 ) -> Result<()> {
 	let path = path.as_ref();
 	let mirror = mirror.as_ref();
 	let sources_list = sources_list.as_ref();
+	let recipe_list = recipe_list.as_ref();
 
 	if sources_list.is_some() && mirror.is_some() {
 		info!("--sources-list is provided, will ignore mirror option...");
+	}
+
+	if recipe_list.is_some() {
+		info!("recipe.lst is provided, ignoring variant...");
 	}
 
 	// Display a progressbar
@@ -131,9 +137,11 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	if sources_list.is_none() {
 		command.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")]);
 	}
-	command
-		.args(["-s", &format!("{}/{}", AB_DIR, "scripts/enable-dkms.sh")])
-		.args([
+	command.args(["-s", &format!("{}/{}", AB_DIR, "scripts/enable-dkms.sh")]);
+	let command = if let Some(recipe_list) = recipe_list {
+		command.args(["--include-files", recipe_list.as_ref().to_str().unwrap()])
+	} else {
+		command.args([
 			"--include-files",
 			&format!(
 				"{}/recipes/mainline/{}-common.lst",
@@ -143,8 +151,8 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 					_ => variant.to_string().to_lowercase(),
 				}
 			),
-		]);
-
+		])
+	};
 	debug!("Running command {:?} ...", command);
 	let status = command.status().context("Failed to run aoscbootstrap")?;
 	// Recover the terminal
