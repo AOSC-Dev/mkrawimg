@@ -118,12 +118,14 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	let mut command = Command::new("aoscbootstrap");
 	let command = if let Some(sources_list) = sources_list {
 		command.args(["--sources-list", sources_list.as_ref().to_str().unwrap()])
-	} else if let Some(mirror) = mirror {
-		command
-			.args(["--branch", "stable"])
-			.args(["--mirror", mirror.as_ref()])
 	} else {
-		command.args(["--branch", "stable"])
+		let command = command
+			.args(["--branch", "stable"])
+			.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")]);
+		if let Some(mirror) = mirror {
+			command.args(["--mirror", mirror.as_ref()]);
+		}
+		command
 	};
 	let command = command
 		.arg("--target")
@@ -134,7 +136,6 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 			&format!("{}/{}", AB_DIR, "config/aosc-mainline.toml"),
 		])
 		.args(["--arch", &arch.to_string().to_lowercase()])
-		.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")])
 		.args(["-s", &format!("{}/{}", AB_DIR, "scripts/enable-dkms.sh")]);
 	let command = if let Some(recipe_list) = recipe_list {
 		command.args(["--include-files", recipe_list.as_ref().to_str().unwrap()])
@@ -151,7 +152,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 			),
 		])
 	};
-	debug!("Running command {:?} ...", command);
+	info!("Running command {:?} ...", command);
 	let status = command.status().context("Failed to run aoscbootstrap")?;
 	// Recover the terminal
 	restore_term();
