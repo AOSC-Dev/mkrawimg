@@ -425,9 +425,25 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 						.file_path
 						.parent()
 						.expect("device.toml should have a parent dir");
+
 					let sources_list_path = dir.join("sources.list");
 					let sources_list: Option<PathBuf> =
 						sources_list_path.exists().then_some(sources_list_path);
+
+					let recipe_list_path = dir.join(&format!("{}.lst", variant_str));
+					let recipe_list: Option<PathBuf> =
+						recipe_list_path.exists().then_some(recipe_list_path);
+
+					let outdir_base = cmdline.outdir.join(format!(
+						"os-{}/{}/rawimg/{}",
+						arch.to_string().to_lowercase(),
+						&variant_str,
+						device.vendor
+					));
+					let tar_gz_path = device
+						.generate_rootfs_tar
+						.then(|| outdir_base.join("rootfs.tar.gz"));
+
 					if !bootstrap_path.is_dir() || !(bootstrap_path.join("etc/os-release")).exists()
 					{
 						bootstrap_distribution(
@@ -436,6 +452,8 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 							arch,
 							Some(&cmdline.mirror),
 							sources_list,
+							recipe_list,
+							tar_gz_path,
 						)?;
 					}
 				}
