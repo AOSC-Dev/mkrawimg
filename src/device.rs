@@ -50,7 +50,6 @@ use crate::{
 	context::{ImageContext, ImageVariant},
 	filesystem::FilesystemType,
 	partition::{PartitionSpec, PartitionType, PartitionUsage},
-	pm::Distro,
 };
 use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
@@ -406,13 +405,6 @@ pub struct DeviceSpec {
 	pub id: String,
 	/// Optional aliases to identify the exact device. Can be any combination of letters, digits, hyphen `"-"` and underscore (`"_"`).
 	pub aliases: Option<Vec<String>>,
-	/// The distribution wich will be installed on this device.
-	///
-	/// Possible values:
-	///
-	/// - `aosc`: AOSC OS.
-	#[serde(default)]
-	pub distro: Distro,
 	/// Vendor of the device. Can be any combination of letters, digits, hyphen `"-"` and underscore (`"_"`).
 	pub vendor: String,
 	/// CPU Architecture of the device.
@@ -446,6 +438,8 @@ pub struct DeviceSpec {
 	/// In this case, the value would be `"raspberrypi,5-model-b"`.
 	#[serde(rename = "compatible")]
 	pub of_compatible: Option<String>,
+	/// The target name in [devena-firstboot](https://github.com/AOSC-Dev/devena-firstboot).
+	pub devena_target: Option<String>,
 	/// List of BSP packages to be installed.
 	/// Must be a list of valid package names, no checks are performed.
 	pub bsp_packages: Vec<String>,
@@ -1186,8 +1180,8 @@ VARIANT='{9}'
 		self.info("Setting up hostname ...");
 		let rand_id: u32 = rand::random();
 		let hostname = format!(
-			"{:?}-{}-{:08x}",
-			&self.device.distro, &self.device.id, rand_id
+			"aosc-{}-{:08x}",
+			&self.device.id, rand_id
 		);
 		self.info(format!("Hostname: {}", &hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
