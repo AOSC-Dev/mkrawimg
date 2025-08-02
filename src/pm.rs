@@ -4,24 +4,12 @@
 use std::path::Path;
 
 use anyhow::Result;
-use serde::Deserialize;
 
 use crate::{
 	context::ImageContext,
 	device::DeviceArch,
 	utils::{run_str_script_with_chroot, setup_scroll_region},
 };
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Clone, Default, Debug, Deserialize, PartialEq, Eq)]
-pub enum Distro {
-	#[default]
-	AOSC,
-	Debian,
-	Ubuntu,
-	ArchLinux,
-	Fedora,
-}
 
 pub enum APT {}
 pub enum Oma {}
@@ -91,7 +79,7 @@ impl PackageManager for Oma {
 }
 
 #[inline]
-fn install_packages_aosc(
+fn install_packages(
 	packages: &[&str],
 	container: &dyn AsRef<Path>,
 	arch: &DeviceArch,
@@ -111,13 +99,7 @@ impl ImageContext<'_> {
 		if packages.is_empty() {
 			return Ok(());
 		}
-		match &self.device.distro {
-			Distro::AOSC => install_packages_aosc(packages, &container, &self.device.arch)?,
-			Distro::Debian => todo!(),
-			Distro::Ubuntu => todo!(),
-			Distro::ArchLinux => todo!(),
-			Distro::Fedora => todo!(),
-		}
+		install_packages(packages, &container, &self.device.arch)?;
 		setup_scroll_region();
 		Ok(())
 	}

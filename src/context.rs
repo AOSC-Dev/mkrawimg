@@ -12,8 +12,8 @@ use crate::{
 	device::{DeviceArch, DeviceSpec, PartitionMapData, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
-	pm::{APT, Distro, Oma, PackageManager},
-	topics::{Topic, save_topics},
+	pm::{Oma, PackageManager, APT},
+	topics::{save_topics, Topic},
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
 		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
@@ -348,9 +348,6 @@ impl ImageContext<'_> {
 	}
 
 	fn save_topics(&self, rootdir: &dyn AsRef<Path>) -> Result<()> {
-		if self.device.distro != Distro::AOSC {
-			bail!("Topic is available for AOSC only.");
-		}
 		if let Some(topics) = &self.topics {
 			self.info("Saving topics ...");
 			save_topics(rootdir.as_ref(), topics)?;
