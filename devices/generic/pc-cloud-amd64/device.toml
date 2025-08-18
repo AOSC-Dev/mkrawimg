@@ -1,0 +1,42 @@
+# This device is mostly for testing purposes. But you can use it if you want to.
+
+id = "pc-cloud-amd64"
+vendor = "generic"
+name = "Standard AMD64 PC Cloud Images (UEFI)"
+arch = "amd64"
+bsp_packages = [
+	"grub",
+	"linux+kernel",
+	"cloud-init",
+	"cloud-base"
+]
+kernel_cmdline = ["rw", "rd.auto", "rd.auto=1", "mitigations=off", "audit=0", "ibt=off", "console=ttyS0", "earlyprintk=ttyS0"]
+partition_map = "gpt"
+num_partitions = 2
+
+[size]
+base = 6144
+desktop = 25000
+server = 6144
+
+[[partition]]
+num = 1
+type = "esp"
+usage = "boot"
+size_in_sectors = 614400
+start_sector = 2048
+mountpoint = "/efi"
+filesystem = "fat32"
+
+[[partition]]
+num = 2
+type = "linux"
+usage = "rootfs"
+size_in_sectors = 0
+mountpoint = "/"
+filesystem = "btrfs"
+mount_opts = ["defaults", "compress=zstd"]
+
+[[bootloader]]
+type = "script"
+name = "apply-bootloader.sh"
