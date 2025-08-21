@@ -37,7 +37,8 @@ compatible = "raspberrypi,3-model-b"
 # List of BSP packages to be installed.
 bsp_packages = [
 	"linux+kernel+rpi64+lts",
-	"rpi-firmware-boot"
+	"rpi-firmware-boot",
+	"devena-firstboot-rpi",
 ]
 
 # Type of the partition map.
