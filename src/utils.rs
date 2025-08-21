@@ -128,7 +128,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 			&format!("{}/{}", AB_DIR, "config/aosc-mainline.toml"),
 		])
 		.args(["--arch", &arch.to_string().to_lowercase()]);
-	if sources_list.is_some() {
+	if sources_list.is_none() {
 		command.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")]);
 	}
 	command
