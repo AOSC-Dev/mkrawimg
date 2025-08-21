@@ -34,8 +34,8 @@ pub struct Topic {
 
 const ATM_STATE: &str = "var/lib/atm/state";
 const ATM_LIST: &str = "etc/apt/sources.list.d/atm.list";
-const DEFAULT_MIRROR: &str = "https://repo.aosc.io/debs";
-const TOPIC_MANIFEST_URL: &str = "https://repo.aosc.io/debs/manifest/topics.json";
+const DEFAULT_MIRROR: &str = "https://repo-hk.aosc.io/debs";
+const TOPIC_MANIFEST_URL: &str = "https://repo-hk.aosc.io/debs/manifest/topics.json";
 
 pub fn fetch_topics() -> Result<Vec<Topic>> {
 	info!("Fetching topics manifest ...");
