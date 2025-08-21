@@ -38,6 +38,7 @@ compatible = "raspberrypi,5-model-b"
 bsp_packages = [
 	"linux+kernel+rpi64+lts",
 	"rpi-firmware-boot",
+	"devena-firstboot-rpi",
 ]
 
 # Type of the partition map.
