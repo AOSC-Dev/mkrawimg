@@ -127,8 +127,11 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 			"--config",
 			&format!("{}/{}", AB_DIR, "config/aosc-mainline.toml"),
 		])
-		.args(["--arch", &arch.to_string().to_lowercase()])
-		.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")])
+		.args(["--arch", &arch.to_string().to_lowercase()]);
+	if sources_list.is_some() {
+		command.args(["-s", &format!("{}/{}", AB_DIR, "scripts/reset-repo.sh")]);
+	}
+	command
 		.args(["-s", &format!("{}/{}", AB_DIR, "scripts/enable-dkms.sh")])
 		.args([
 			"--include-files",
