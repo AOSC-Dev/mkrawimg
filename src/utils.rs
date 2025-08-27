@@ -186,6 +186,35 @@ pub fn rsync_sysroot<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
 	cmd_run_check_status(&mut command)
 }
 
+pub fn compress_directory<P: AsRef<Path>>(source_dir: P, output_path: P) -> Result<()> {
+	let source_dir = source_dir.as_ref();
+	let output_path: &Path = output_path.as_ref();
+	if !source_dir.is_dir() {
+		bail!("Source directory not exists.");
+	}
+	if let Some(parent) = output_path.parent() {
+		if !parent.exists() {
+			std::fs::create_dir_all(parent)?;
+		}
+	}
+	let mut command = Command::new("tar");
+	command.arg("-czf");
+	command.arg(output_path);
+	command.arg("-C");
+	command.arg(source_dir);
+	command.arg(".");
+	debug!("Running command {:?}", command);
+	let status = command.status().context("Failed to run tar")?;
+
+	if status.success() {
+		Ok(())
+	} else if let Some(c) = status.code() {
+		Err(anyhow!("tar exited unsuccessfully (code {})", c))
+	} else {
+		Err(anyhow!("tar exited abnormally"))
+	}
+}
+
 /// Set up the scroll region (for a progress bar on the bottom)
 #[inline]
 pub fn setup_scroll_region() {

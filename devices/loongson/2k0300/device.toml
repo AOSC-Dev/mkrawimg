@@ -7,10 +7,12 @@ arch = "loong_arch64"
 name = "Generic LS2K0300 Board"
 
 bsp_packages = [
-    "linux-kernel-loongarch-2k0300"
+    "linux-kernel-loongarch-nosimd-6.12.35"
 ]
 
 initrdless = true
+
+generate_rootfs_tar = true
 
 partition_map = "dos"
 

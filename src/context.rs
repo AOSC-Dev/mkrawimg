@@ -15,8 +15,8 @@ use crate::{
 	pm::{APT, Distro, Oma, PackageManager},
 	topics::{Topic, save_topics},
 	utils::{
-		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
+		add_user, compress_directory, create_sparse_file, refresh_partition_table, restore_term,
+		rsync_sysroot, run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
 	},
 };
 use anyhow::{Context, Result, bail};
@@ -532,6 +532,12 @@ impl ImageContext<'_> {
 
 		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
+		if self.device.generate_rootfs_tar {
+			self.info("Generating rootfs.tar.gz ...");
+			draw_progressbar("Generating rootfs.tar.gz");
+			compress_directory(&rootfs_mount, &outdir_base.join("rootfs.tar.gz"))?;
+		}
+
 		self.info("Unmounting filesystems ...");
 		ImageContext::<'_>::umount_stack(&mut mountpoint_stack)?;
 		self.info("Detaching the loop device ...");

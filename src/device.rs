@@ -242,6 +242,16 @@ pub enum DeviceArch {
 /// kernel_cmdline = ["console=ttyS0,115200", "console=tty0", "rw", "fsck.repair=yes"]
 /// ```
 ///
+/// `generate_rootfs_tar` - Generate rootfs tarball (Optional)
+/// --------------------------------------------------------
+///
+/// A boolean value indicating whether to generate a `rootfs.tar.gz` archive
+/// in addition to the raw image. Default is `false`.
+///
+/// ```toml
+/// generate_rootfs_tar = true
+/// ```
+///
 /// `[sizes]` - Image sizes for each variant
 /// ----------------------------------------
 ///
@@ -456,6 +466,10 @@ pub struct DeviceSpec {
 	/// Kernel command line.
 	/// Must be a list of strings, and `root=` must not present in this list (it is automatically generated).
 	pub kernel_cmdline: Option<Vec<String>>,
+	/// Whether to generate a rootfs.tar.gz archive in addition to the raw image.
+	/// Useful for devices that can boot from tarballs or need separate rootfs.
+	#[serde(default)]
+	pub generate_rootfs_tar: bool,
 	/// The partition map used for the image.
 	///
 	/// Possible values:
