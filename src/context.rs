@@ -1,7 +1,7 @@
 use core::time;
 use std::{
-	fs::{File, create_dir_all},
-	io::{BufReader, BufWriter, Write, copy},
+	fs::{create_dir_all, File},
+	io::{copy, BufReader, BufWriter, Write},
 	path::{Path, PathBuf},
 	thread,
 	time::{Duration, Instant},
@@ -16,15 +16,16 @@ use crate::{
 	topics::{save_topics, Topic},
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		run_script_with_chroot, set_locale, setup_scroll_region, sync_filesystem,
+		run_script_with_chroot, run_str_script_with_chroot, set_locale, setup_scroll_region,
+		sync_filesystem,
 	},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
-use sys_mount::{Mount, UnmountFlags, unmount};
+use sys_mount::{unmount, Mount, UnmountFlags};
 use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
@@ -513,7 +514,7 @@ impl ImageContext<'_> {
 		self.info("Installing BSP packages ...");
 		draw_progressbar("Installing packages");
 		// Eh we have to "convert" Vec<String> to Vec<&str>.
-		let pkgs = &self
+		let pkgs = &mut self
 			.device
 			.bsp_packages
 			.iter()
@@ -521,9 +522,33 @@ impl ImageContext<'_> {
 			.collect::<Vec<&str>>();
 		self.install_packages(pkgs.as_slice(), &rootfs_mount)?;
 
+		if let Some(tgt) = &self.device.devena_firstboot_target {
+			self.info("Installing devena-firstboot packages ...");
+			self.install_packages(&[&format!("devena-firstboot-{}", tgt)], &rootfs_mount)?;
+		}
+
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
 		self.postinst_step(&rootfs_mount, binds)?;
+
+		if let Some(tgt) = &self.device.devena_firstboot_target {
+			self.info("Creating devena-firstboot initramfs images ...");
+			run_str_script_with_chroot(
+				&rootfs_mount,
+				"create-devena-initrd",
+				&[],
+				Some(&"/bin/bash"),
+			)?;
+			run_str_script_with_chroot(
+				&rootfs_mount,
+				&format!(
+					"oma remove --no-check-dbus --purge --yes devena-firstboot-{}",
+					tgt
+				),
+				&[],
+				Some(&"/bin/bash"),
+			)?;
+		}
 
 		self.apply_bootloaders(&rootfs_mount, &loop_dev_path, binds)?;
 
@@ -533,7 +558,7 @@ impl ImageContext<'_> {
 		ImageContext::<'_>::umount_stack(&mut mountpoint_stack)?;
 		self.info("Detaching the loop device ...");
 		loop_dev.detach()?;
-		// fs::remove_file(rawimg_path)?;
+
 		self.compress_image(&rawimg_path, &outfile_path)?;
 		restore_term();
 		sync_filesystem(&rawimg_path)?;

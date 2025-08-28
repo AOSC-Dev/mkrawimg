@@ -226,6 +226,39 @@ pub enum DeviceArch {
 /// initrdless = true
 /// ```
 ///
+/// `devena_firstboot_tgt` - [`devena-firstboot`](https://github.com/AOSC-Dev/devena-firstboot) Target (Optional)
+/// -------------------------------------------------------------------------------------------------------------
+///
+/// [`devena-firstboot`](https://github.com/AOSC-Dev/devena-firstboot) is a first-boot initialization framework utilizing an initrd image.
+///
+/// It performs the following processes during the first bootup:
+///
+/// - Partition table unique indentifier randomization
+/// - Filesystem identifier randomization
+/// - Partition table and root filesystem expansion
+/// - Other related operations, e.g. regenerate `/etc/fstab`
+///
+/// This optional field specifies the target name for the `devena-firstboot`. If your device is not yet supported by `devena-firstboot`, please omit this field.
+///
+/// Once specified, `mkrawimg` will perform the following operations:
+///
+/// - Automatically install the `devena-firstboot-$TARGET` package, even if the package nane is not in the `bsp_packages` list
+/// - Automatically run `create-devena-initrd` command **after the post-installation stage**, before any of the bootloaders is applied
+///
+/// <div class="warning">
+///
+/// - Make sure package `devena-firstboot-$TARGET` exists in the `stable` branch, or the topic(s) you have enrolled during the image generation.
+/// - Please make sure you have a bootloader script that configures the bootloader to load the created devena-firstboot initramfs image upon boot.
+/// - Please make sure you have a routine that removes the devena-firstboot initramfs image and reconfigures the bootloader during devena-firstboot setup, so that the firstboot setup does not run on later boots.
+///
+/// </div>
+///
+/// The default value is `None`.
+///
+/// ```toml
+/// devena_firstboot_target = "rpi"
+/// ```
+///
 /// `kernel_cmdline` - Kernel command line (Optional)
 /// -------------------------------------------------
 ///
@@ -390,6 +423,19 @@ pub enum DeviceArch {
 /// - `BOOT_PARTUUID`, `BOOT_FSUUID`: Partition and Filesystem UUID for the boot partition, if one is found.
 /// - `ROOT_PARTUUID`, `ROOT_FSUUID`: Partition and Filesystem UUID for the root partition.
 ///
+/// Notes about `devena-firstboot` integration for device maintainers
+/// =================================================================
+///
+/// `create-devena-initrd` script will be automatically run if you specify the `devena_firstboot_target` field.
+///
+/// However, `create-devena-initrd` script must only create initramfs images, with the `devena-firstboot` module,
+/// to a predefined path like `/boot/devena-firstboot.img`.
+///
+/// Your target-specific `create-devena-initrd` script must NOT attempt to generate bootloader configuration -
+/// Please implement the bootloader configuration logic in your bootloader scripts to keep maintainability, also to reduce errors.
+///
+/// If the bootloader of your device does not support initramfs at all, do not declare this field.
+///
 /// Examples
 /// ========
 ///
@@ -456,6 +502,11 @@ pub struct DeviceSpec {
 	/// scripts.
 	#[serde(default)]
 	pub initrdless: bool,
+	/// Target name for the `devena-firstboot`.
+	///
+	/// If the device is not yet supported by devena-firstboot, omit this field.
+	#[serde(default)]
+	pub devena_firstboot_target: Option<String>,
 	/// Kernel command line.
 	/// Must be a list of strings, and `root=` must not present in this list (it is automatically generated).
 	pub kernel_cmdline: Option<Vec<String>>,
@@ -1057,6 +1108,7 @@ DISKUUID='{6}'
 KERNEL_CMDLINE='{7}'
 INITRDLESS='{8}'
 VARIANT='{9}'
+DEVENA_ENABLED='{10}'
 "#,
 			self.device.id,
 			&self.device.of_compatible.clone().unwrap_or("".to_string()),
@@ -1067,7 +1119,8 @@ VARIANT='{9}'
 			&pm_data.uuid,
 			&self.device.gen_kernel_cmdline(pm_data)?,
 			self.device.initrdless.to_string().to_lowercase(),
-			self.variant.to_string().to_lowercase()
+			self.variant.to_string().to_lowercase(),
+			self.device.devena_firstboot_target.is_some().to_string().to_lowercase(),
 
 		);
 		for part in &self.device.partitions {
