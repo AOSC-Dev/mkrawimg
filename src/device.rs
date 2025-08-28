@@ -219,6 +219,9 @@ pub enum DeviceArch {
 /// Default is `false`, can be skipped. If set to `true`, then the following thing will happen:
 ///
 /// - The filesystem table `/etc/fstab` will be generated using the unique identifiers of the partition (`PARTUUID`), rather than unique identifiers of the filesystem (`UUID`).
+/// - The `root=` option in the kernel command line will use `PARTUUID=` instead of `UUID=`, which requires an initramfs image.
+///
+/// This field also appears in the post-installation scripts and boot loader deployment scripts, so that the developer can use this to determine which `root=` parameter to be used, if the developer decided to not to use generated `KERNEL_CMDLINE`.
 ///
 /// ```toml
 /// initrdless = true
@@ -233,9 +236,9 @@ pub enum DeviceArch {
 ///
 /// The final kernel command line will be `root=` argument concatenated with rest of the arguments.
 ///
-/// If this field is defined, the post installation script and any bootloader scripts will be able to reference it with `$KERNEL_CMDLINE`.
+/// If this field is defined, the post installation script and any bootloader scripts will be able to reference it with `$KERNEL_CMDLINE`, with `root=` parameter prepended into the string.
 ///
-/// If you want to generate the kernel command line yourself with a script, please skip this field.
+/// If you want to generate the kernel command line yourself within the post-installation or bootloader scripts, please skip this field.
 ///
 /// ```toml
 /// # The final command line $KERNEL_CMDLINE:
@@ -377,6 +380,8 @@ pub enum DeviceArch {
 ///
 ///    Either a 32-bit hexadecimal integer or an UUID (Same as the output of `blkid`).
 /// - `KERNEL_CMDLINE`: Full kernel command line with `root=` argument. Empty if not defined in the spec file.
+/// - `INITRDLESS`: Whether this device boots without an initramfs image. Either `true` or `false`.
+/// - `VARIANT`: The OS variant this image is using, one of the `base`, `desktop` and `server`.
 /// - `PARTx_PARTUUID`: Partition UUID of the xth partition.
 ///
 ///   Same as the output of `blkid`, can be used directly with `root=PARTUUID=` argument.
@@ -452,6 +457,9 @@ pub struct DeviceSpec {
 	/// - Generated fstab will use PARTUUID instead of filesystem UUID,
 	///   since the kernel does not support using `UUID=` to specify root
 	///   device if initrd is not being used.
+	///
+	/// This field also appears in the environment of the post installation and bootloader
+	/// scripts.
 	#[serde(default)]
 	pub initrdless: bool,
 	/// Kernel command line.
@@ -1053,6 +1061,8 @@ ROOTPART='{4}'
 DISKLABEL='{5}'
 DISKUUID='{6}'
 KERNEL_CMDLINE='{7}'
+INITRDLESS='{8}'
+VARIANT='{9}'
 "#,
 			self.device.id,
 			&self.device.of_compatible.clone().unwrap_or("".to_string()),
@@ -1061,7 +1071,10 @@ KERNEL_CMDLINE='{7}'
 			rootpart.as_ref().to_string_lossy(),
 			&self.device.partition_map.to_string().to_lowercase(),
 			&pm_data.uuid,
-			&self.device.gen_kernel_cmdline(pm_data)?
+			&self.device.gen_kernel_cmdline(pm_data)?,
+			self.device.initrdless.to_string().to_lowercase(),
+			self.variant.to_string().to_lowercase()
+
 		);
 		for part in &self.device.partitions {
 			let part_data = pm_data.data.get(&part.num).context(format!(
