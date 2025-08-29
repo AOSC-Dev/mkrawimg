@@ -4,6 +4,8 @@ id = "pc-efi"
 vendor = "generic"
 name = "Standard PC (UEFI)"
 arch = "amd64"
+initrdless = true
+devena_firstboot_target = "generic"
 bsp_packages = [
 	"grub",
 	"linux+kernel"
@@ -32,8 +34,8 @@ type = "linux"
 usage = "rootfs"
 size_in_sectors = 0
 mountpoint = "/"
-filesystem = "btrfs"
-mount_opts = ["defaults", "compress=zstd"]
+filesystem = "xfs"
+mount_opts = ["defaults"]
 
 [[bootloader]]
 type = "script"
