@@ -1,7 +1,7 @@
 use core::time;
 use std::{
-	fs::{create_dir_all, File},
-	io::{copy, BufReader, BufWriter, Write},
+	fs::{File, create_dir_all},
+	io::{BufReader, BufWriter, Write, copy},
 	path::{Path, PathBuf},
 	thread,
 	time::{Duration, Instant},
@@ -12,20 +12,20 @@ use crate::{
 	device::{DeviceArch, DeviceSpec, PartitionMapData, PartitionMapType},
 	filesystem::FilesystemType,
 	partition::PartitionUsage,
-	pm::{Oma, PackageManager, APT},
-	topics::{save_topics, Topic},
+	pm::{APT, Oma, PackageManager},
+	topics::{Topic, save_topics},
 	utils::{
 		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
 		run_script_with_chroot, run_str_script_with_chroot, set_locale, setup_scroll_region,
 		sync_filesystem,
 	},
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
-use sys_mount::{unmount, Mount, UnmountFlags};
+use sys_mount::{Mount, UnmountFlags, unmount};
 use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]

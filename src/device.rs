@@ -1120,8 +1120,11 @@ DEVENA_ENABLED='{10}'
 			&self.device.gen_kernel_cmdline(pm_data)?,
 			self.device.initrdless.to_string().to_lowercase(),
 			self.variant.to_string().to_lowercase(),
-			self.device.devena_firstboot_target.is_some().to_string().to_lowercase(),
-
+			self.device
+				.devena_firstboot_target
+				.is_some()
+				.to_string()
+				.to_lowercase(),
 		);
 		for part in &self.device.partitions {
 			let part_data = pm_data.data.get(&part.num).context(format!(
@@ -1232,10 +1235,7 @@ DEVENA_ENABLED='{10}'
 	pub fn set_hostname(&self, container: &dyn AsRef<Path>) -> Result<()> {
 		self.info("Setting up hostname ...");
 		let rand_id: u32 = rand::random();
-		let hostname = format!(
-			"aosc-{}-{:08x}",
-			&self.device.id, rand_id
-		);
+		let hostname = format!("aosc-{}-{:08x}", &self.device.id, rand_id);
 		self.info(format!("Hostname: {}", &hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
 		let mut hostname_fd = File::options()
