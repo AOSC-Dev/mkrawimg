@@ -259,6 +259,22 @@ pub enum DeviceArch {
 /// devena_firstboot_target = "rpi"
 /// ```
 ///
+/// `oobe_wizard` - Enable OOBE Wizard (Optional)
+/// ---------------------------------------------
+///
+/// An optional boolean value to specify whether to pre-install the OOBE wizard package so that the OOBE wizard launches on the first boot (after the devena-firstboot setup).
+///
+/// The default value is `false`. The following behavior will change if this is set to `true`:
+///
+/// - `aosc-os-oobe-cli` or `aosc-os-oobe-gui` will be installed according to the OS variant this image is based on
+/// - The default user and group won't be created
+/// - Locale will be set to `C.UTF-8`
+/// - The hostname and hosts entry will still be set, to avoid runtime system errors
+///
+/// ```toml
+/// oobe_wizard = true
+/// ```
+///
 /// `kernel_cmdline` - Kernel command line (Optional)
 /// -------------------------------------------------
 ///
@@ -507,6 +523,8 @@ pub struct DeviceSpec {
 	/// If the device is not yet supported by devena-firstboot, omit this field.
 	#[serde(default)]
 	pub devena_firstboot_target: Option<String>,
+	#[serde(default)]
+	pub oobe_wizard: bool,
 	/// Kernel command line.
 	/// Must be a list of strings, and `root=` must not present in this list (it is automatically generated).
 	pub kernel_cmdline: Option<Vec<String>>,
@@ -1120,11 +1138,8 @@ DEVENA_ENABLED='{10}'
 			&self.device.gen_kernel_cmdline(pm_data)?,
 			self.device.initrdless.to_string().to_lowercase(),
 			self.variant.to_string().to_lowercase(),
-			self.device
-				.devena_firstboot_target
-				.is_some()
-				.to_string()
-				.to_lowercase(),
+			self.device.devena_firstboot_target.is_some().to_string().to_lowercase(),
+
 		);
 		for part in &self.device.partitions {
 			let part_data = pm_data.data.get(&part.num).context(format!(
@@ -1235,7 +1250,10 @@ DEVENA_ENABLED='{10}'
 	pub fn set_hostname(&self, container: &dyn AsRef<Path>) -> Result<()> {
 		self.info("Setting up hostname ...");
 		let rand_id: u32 = rand::random();
-		let hostname = format!("aosc-{}-{:08x}", &self.device.id, rand_id);
+		let hostname = format!(
+			"aosc-{}-{:08x}",
+			&self.device.id, rand_id
+		);
 		self.info(format!("Hostname: {}", &hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
 		let mut hostname_fd = File::options()

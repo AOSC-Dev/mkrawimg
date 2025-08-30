@@ -527,6 +527,15 @@ impl ImageContext<'_> {
 			self.install_packages(&[&format!("devena-firstboot-{}", tgt)], &rootfs_mount)?;
 		}
 
+		if self.device.oobe_wizard {
+			self.info("Installing OOBE Wizard ...");
+			let oobe_package = match self.variant {
+				ImageVariant::Desktop => "aosc-os-oobe-gui",
+				_ => "aosc-os-oobe-cli"
+			};
+			self.install_packages(&[&oobe_package], &rootfs_mount)?;
+		}
+
 		self.info("Running post installation step ...");
 		draw_progressbar("Post installation step");
 		self.postinst_step(&rootfs_mount, binds)?;
