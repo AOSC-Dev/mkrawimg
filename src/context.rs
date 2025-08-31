@@ -15,9 +15,9 @@ use crate::{
 	pm::{APT, Oma, PackageManager},
 	topics::{Topic, save_topics},
 	utils::{
-		add_user, create_sparse_file, refresh_partition_table, restore_term, rsync_sysroot,
-		run_script_with_chroot, run_str_script_with_chroot, set_locale, setup_scroll_region,
-		sync_filesystem,
+		add_user, create_sparse_file, fs_zerofill_freespace, refresh_partition_table, restore_term,
+		rsync_sysroot, run_script_with_chroot, run_str_script_with_chroot, set_locale,
+		setup_scroll_region, sync_filesystem,
 	},
 };
 use anyhow::{Context, Result, bail};
@@ -569,6 +569,8 @@ impl ImageContext<'_> {
 
 		self.info("Finishing up ...");
 		draw_progressbar("Finishing up");
+		self.info("Filling the filesystem with zeroes ...");
+		fs_zerofill_freespace(&rootfs_mount)?;
 		self.info("Unmounting filesystems ...");
 		ImageContext::<'_>::umount_stack(&mut mountpoint_stack)?;
 		self.info("Detaching the loop device ...");

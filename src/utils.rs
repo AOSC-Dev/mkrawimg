@@ -1,7 +1,7 @@
 use std::{
-	ffi::{CString, c_int, c_void},
-	fs::File,
-	io::{Seek, Write},
+	ffi::{c_int, c_void, CString},
+	fs::{self, File},
+	io::{self, BufReader, BufWriter, Seek, Write},
 	os::unix::fs::chown,
 	path::{Path, PathBuf},
 	process::{Command, Stdio},
@@ -479,6 +479,40 @@ pub fn return_ownership_recursive(
 			to_user,
 			to_group
 		))?;
+	}
+	Ok(())
+}
+
+/// Fill the rest of the filesystem with zeroes.
+pub fn fs_zerofill_freespace(fs_path: &dyn AsRef<Path>) -> Result<()> {
+	let zerofill_path = fs_path.as_ref().join("zerofill");
+	let fd = fs::File::options()
+		.create(true)
+		.truncate(true)
+		.write(true)
+		.open(&zerofill_path)?;
+	let mut bufwriter = BufWriter::with_capacity(1_048_576, fd);
+	let dev_zero_fd = fs::File::options().read(true).open("/dev/zero")?;
+	let mut bufreader = BufReader::with_capacity(1_048_576, dev_zero_fd);
+	match io::copy(&mut bufreader, &mut bufwriter) {
+		Ok(_) => {
+			let written_size = bufwriter.stream_position()?;
+			info!("Writing finished with {} bytes written.", written_size);
+			bufwriter.flush()?;
+			fs::remove_file(&zerofill_path).context("While trying to remove the zero-fill file")?;
+		}
+		Err(e) => match e.kind() {
+			io::ErrorKind::StorageFull | io::ErrorKind::WriteZero => {
+				let written_size = bufwriter.stream_position()?;
+				info!("Writing finished with {} bytes written.", written_size);
+				bufwriter.flush()?;
+				fs::remove_file(&zerofill_path)
+					.context("While trying to remove the zero-fill file")?;
+			}
+			_ => {
+				return Err(e).context("While writing to the zero-fill file");
+			}
+		},
 	}
 	Ok(())
 }
