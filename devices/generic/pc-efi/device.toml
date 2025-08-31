@@ -6,6 +6,7 @@ name = "Standard PC (UEFI)"
 arch = "amd64"
 initrdless = true
 devena_firstboot_target = "generic"
+oobe_wizard = true
 bsp_packages = [
 	"grub",
 	"linux+kernel"
