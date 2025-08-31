@@ -211,16 +211,22 @@ impl ImageContext<'_> {
 
 	fn postinst_step<P: AsRef<Path>>(&self, rootdir: P, binds: &[&str]) -> Result<()> {
 		let rootdir = rootdir.as_ref();
-		self.info("Setting up the user and locale ...");
-		add_user(
-			rootdir,
-			&self.user,
-			&self.password,
-			Some("Default User"),
-			None,
-			None,
-		)?;
-		set_locale(rootdir, "en_US.UTF-8")?;
+		// The OOBE Wizard will take care of the user, locale and swapfile setup procedures.
+		if !self.device.oobe_wizard {
+			self.info("Setting up the user and locale ...");
+			add_user(
+				rootdir,
+				&self.user,
+				&self.password,
+				Some("Default User"),
+				None,
+				None,
+			)?;
+			set_locale(rootdir, "en_US.UTF-8")?;
+		} else {
+			// Must keep the sanity of the environment.
+			set_locale(rootdir, "C.UTF-8")?;
+		}
 		self.set_hostname(&rootdir)?;
 
 		let postinst_script_dir = self
