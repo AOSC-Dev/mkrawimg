@@ -21,8 +21,23 @@ cp -av /usr/lib/rpi64/config/* /boot/rpi/
 echo "Generating cmdline.txt ..."
 gen_cmdline
 
-echo "Adding devena-firstboot ..."
-create-devena-initrd
-apt purge --yes devena-firstboot-rpi
+
+echo "Creating devena-cfg.txt ..."
+cat > /boot/rpi/devena-cfg.txt << EOF
+# Initramfs configuration for devena-firstboot.
+# DO NOT EDIT! This file will be removed after finishing the first boot
+# setup.
+[pi3]
+initramfs devena-initrd-rpi4.img followkernel
+[pi4]
+initramfs devena-initrd-rpi4.img followkernel
+[pi5]
+initramfs devena-initrd-rpi5.img followkernel
+EOF
+
+if ! grep -q "^include devena-cfg.txt" /boot/rpi/distcfg.txt ; then
+	echo "-- Including devena-cfrg.txt in distcfg.txt ..."
+	echo "include devena-cfg.txt" >> /boot/rpi/distcfg.txt
+fi
 
 echo "Done!"
