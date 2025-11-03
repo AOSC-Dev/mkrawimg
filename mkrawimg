@@ -87,4 +87,7 @@ if [ "${#errors[@]}" -ge 1 ] ; then
 fi
 
 cargo build --release --bin $BINNAME
-exec ./target/release/$BINNAME "$@"
+if [ "$EUID" != "0" ] ; then
+	SUDO=sudo
+fi
+exec $SUDO ./target/release/$BINNAME "$@"
