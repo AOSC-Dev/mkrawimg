@@ -165,7 +165,7 @@ use filesystem::FilesystemType;
 use log::{debug, error, info, warn};
 use owo_colors::colored::*;
 use registry::DeviceRegistry;
-use utils::{bootstrap_distribution, check_binfmt, restore_term, return_ownership_recursive};
+use utils::{bootstrap_distribution, check_binfmt, return_ownership_recursive};
 
 #[doc(hidden)]
 enum BuildMode {
@@ -182,7 +182,6 @@ const DISTRO_REGISTRY_DIR: &str = match option_env!("DISTRO_REGISTRY_DIR") {
 
 fn main() -> Result<()> {
 	ctrlc::set_handler(move || {
-		restore_term();
 		eprintln!("\nReceived Ctrl-C, exiting.");
 
 		std::process::exit(1);
@@ -215,8 +214,6 @@ fn main() -> Result<()> {
 		debug!("Debug output enabled.");
 	}
 	if let Err(e) = try_main(cmdline) {
-		// Recover the terminal
-		restore_term();
 		// Use logger to pretty-print errors
 		let mut str_buf = String::new();
 		error!("Error encountered!\n{}", e);
@@ -526,6 +523,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 			}
 			info!("Output directory: {}", &cmdline.outdir.display());
 			info!("Program finished successfully. Exiting.");
+			eprint!("\x1b]0;\x07\r");
 		}
 		cli::Action::Check { .. } => {
 			info!("Checking validity of the registry ...");

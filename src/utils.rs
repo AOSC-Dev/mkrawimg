@@ -11,7 +11,6 @@ use anyhow::{Context, Result, anyhow, bail};
 use blkid::prober::ProbeState;
 use libc::{O_NONBLOCK, O_RDONLY, close, open};
 use log::{debug, info};
-use termsize::Size;
 use walkdir::WalkDir;
 
 use crate::{context::ImageVariant, device::DeviceArch};
@@ -99,16 +98,10 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 		info!("recipe.lst is provided, ignoring variant...");
 	}
 
-	// Display a progressbar
-	setup_scroll_region();
-
-	let size = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-	eprint!("\x1b7\x1b[{};0f\x1b[42m\x1b[0K\x1b[2K", size.rows);
 	eprint!(
-		"\x1b[30m[{}] Bootstrapping release ...",
+		"\x1b]0;mkrawimg: {}: Bootstrapping release\x07\r",
 		variant.to_string().to_lowercase()
 	);
-	eprint!("\x1b8\x1b[0m");
 
 	info!(
 		"Bootstrapping {} system distribution to {} ...",
@@ -155,8 +148,7 @@ pub fn bootstrap_distribution<P: AsRef<Path>, S: AsRef<str>>(
 	};
 	debug!("Running command {:?} ...", command);
 	let status = command.status().context("Failed to run aoscbootstrap")?;
-	// Recover the terminal
-	restore_term();
+
 	if status.success() {
 		info!("Successfully bootstrapped {} distribution.", variant);
 		Ok(())
@@ -185,24 +177,6 @@ pub fn rsync_sysroot<P: AsRef<Path>>(src: P, dst: P) -> Result<()> {
 	debug!("Running command {:?}", command);
 	// return Ok(());
 	cmd_run_check_status(&mut command)
-}
-
-/// Set up the scroll region (for a progress bar on the bottom)
-#[inline]
-pub fn setup_scroll_region() {
-	let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-	// Set up the scroll region
-	eprint!("\n\x1b7\x1b[0;{}r\x1b8\x1b[1A", term_geometry.rows - 1);
-}
-
-/// Recover the terminal
-#[inline]
-pub fn restore_term() {
-	let term_geometry = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-	eprint!(
-		"\x1b7\x1b[0;{}r\x1b[{};0f\x1b[0K\x1b8",
-		term_geometry.rows, term_geometry.rows
-	);
 }
 
 #[allow(dead_code)]
