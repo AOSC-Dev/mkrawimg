@@ -8,7 +8,7 @@ use anyhow::Result;
 use crate::{
 	context::ImageContext,
 	device::DeviceArch,
-	utils::{run_str_script_with_chroot, setup_scroll_region},
+	utils::run_str_script_with_chroot,
 };
 
 pub enum APT {}
@@ -100,7 +100,6 @@ impl ImageContext<'_> {
 			return Ok(());
 		}
 		install_packages(packages, &container, &self.device.arch)?;
-		setup_scroll_region();
 		Ok(())
 	}
 }

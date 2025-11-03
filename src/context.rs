@@ -15,9 +15,9 @@ use crate::{
 	pm::{APT, Oma, PackageManager},
 	topics::{Topic, save_topics},
 	utils::{
-		add_user, create_sparse_file, fs_zerofill_freespace, refresh_partition_table, restore_term,
+		add_user, create_sparse_file, fs_zerofill_freespace, refresh_partition_table,
 		rsync_sysroot, run_script_with_chroot, run_str_script_with_chroot, set_locale,
-		setup_scroll_region, sync_filesystem,
+		sync_filesystem,
 	},
 };
 use anyhow::{Context, Result, bail};
@@ -26,7 +26,6 @@ use log::{debug, info, warn};
 use loopdev::LoopControl;
 use strum::{Display, VariantArray};
 use sys_mount::{Mount, UnmountFlags, unmount};
-use termsize::Size;
 
 #[derive(Copy, Clone, Debug, Display, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
 pub enum ImageVariant {
@@ -368,20 +367,11 @@ impl ImageContext<'_> {
 	}
 
 	pub fn execute(self, num: usize, len: usize) -> Result<()> {
-		let draw_progressbar = |content: &str| {
-			// we don't want to screw up the terminal.
-			let size = termsize::get().unwrap_or(Size { rows: 25, cols: 80 });
-			eprint!("\x1b7\x1b[{};0f\x1b[42m\x1b[0K\x1b[2K", size.rows);
-			eprint!(
-				"\x1b[30m[{}/{}] {} ({:?}): {}",
-				num, len, &self.device.id, &self.variant, content
-			);
-			eprint!("\x1b8");
+		let set_title = |content: &str| {
+			eprint!("\x1b]0;mkrawimg: [{}/{}] {}: {}\x07\r", num, len, self.device.id, content);
 		};
 
-		// Set up the scroll region for progressbar.
-		setup_scroll_region();
-
+		set_title("Prepairing");
 		// Various paths being used
 		// The path which used specifically for this task
 		// Contains the raw image and the mount points
@@ -426,7 +416,7 @@ impl ImageContext<'_> {
 		self.info(format!("Output file:\n\t{}", &self.filename));
 
 		self.info("Initializing image ...");
-		draw_progressbar("Initializing image");
+		set_title("Initializing image");
 		// Create workdir_base and all its parents.
 		debug!(
 			"Creating directory '{}' and all of its parents ...",
@@ -504,7 +494,7 @@ impl ImageContext<'_> {
 		debug!("Root filesystem mountpoint: {:?}", rootfs_mount);
 
 		self.info("Installing system distribution ...");
-		draw_progressbar("Installing base distribution");
+		set_title("Installing distribution");
 		rsync_sysroot(&self.base_dist, &rootfs_mount)?;
 		self.mount_partitions_in_root(&loop_dev_path, &rootfs_mount, &mut mountpoint_stack)?;
 		self.info("Generating fstab ...");
@@ -518,7 +508,7 @@ impl ImageContext<'_> {
 		self.save_topics(&rootfs_mount)?;
 
 		self.info("Installing BSP packages ...");
-		draw_progressbar("Installing packages");
+		set_title("Installing BSP packages");
 		// Eh we have to "convert" Vec<String> to Vec<&str>.
 		let pkgs = &mut self
 			.device
@@ -542,8 +532,8 @@ impl ImageContext<'_> {
 			self.install_packages(&[&oobe_package], &rootfs_mount)?;
 		}
 
-		self.info("Running post installation step ...");
-		draw_progressbar("Post installation step");
+		self.info("Running post installation steps ...");
+		set_title("Post installation");
 		self.postinst_step(&rootfs_mount, binds)?;
 
 		if let Some(tgt) = &self.device.devena_firstboot_target {
@@ -568,7 +558,7 @@ impl ImageContext<'_> {
 		self.apply_bootloaders(&rootfs_mount, &loop_dev_path, binds)?;
 
 		self.info("Finishing up ...");
-		draw_progressbar("Finishing up");
+		set_title("Finishing up");
 		self.info("Filling the filesystem with zeroes ...");
 		fs_zerofill_freespace(&rootfs_mount)?;
 		self.info("Unmounting filesystems ...");
@@ -576,8 +566,8 @@ impl ImageContext<'_> {
 		self.info("Detaching the loop device ...");
 		loop_dev.detach()?;
 
+		set_title("Compressing final image");
 		self.compress_image(&rawimg_path, &outfile_path)?;
-		restore_term();
 		sync_filesystem(&rawimg_path)?;
 		info!("Done! image finished.");
 		Ok(())
