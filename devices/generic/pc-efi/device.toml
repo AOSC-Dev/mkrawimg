@@ -11,13 +11,13 @@ bsp_packages = [
 	"grub",
 	"linux+kernel"
 ]
-kernel_cmdline = ["rw", "rd.auto", "rd.auto=1", "mitigations=off", "audit=0", "ibt=off"]
+kernel_cmdline = ["rd.auto"]
 partition_map = "gpt"
 num_partitions = 2
 
 [size]
 base = 6144
-desktop = 25000
+desktop = 19000
 server = 6144
 
 [[partition]]
