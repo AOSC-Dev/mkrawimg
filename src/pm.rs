@@ -100,7 +100,7 @@ fn install_packages_aosc(
 		Oma::install(packages, container)
 	} else {
 		match arch {
-			DeviceArch::Mips64r6el => APT::install(packages, container),
+			DeviceArch::mips64r6el => APT::install(packages, container),
 			_ => Oma::install(packages, container),
 		}
 	}

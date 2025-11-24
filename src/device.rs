@@ -72,27 +72,28 @@ pub enum PartitionMapType {
 	GPT,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(
 	Copy, Clone, Debug, strum::Display, Deserialize, PartialEq, Eq, PartialOrd, Ord, ValueEnum,
 )]
-#[serde(rename_all(deserialize = "snake_case"))]
+#[serde(rename_all(deserialize = "lowercase"))]
 pub enum DeviceArch {
 	// Tier 1 architectures
 	/// x86-64
-	Amd64,
+	amd64,
 	/// AArch64
-	Arm64,
+	arm64,
 	/// LoongArch64
-	LoongArch64,
+	loongarch64,
 	// Tier 2 architectures
 	/// IBM POWER 8 and up (Little Endian)
-	Ppc64el,
+	ppc64el,
 	/// MIPS Loongson CPUs (Loongson 3, mips64el)
-	Loongson3,
+	loongson3,
 	/// 64-bit RISC-V with Extension C and G
-	Riscv64,
+	riscv64,
 	/// 64-Bit MIPS Release 6
-	Mips64r6el,
+	mips64r6el,
 }
 
 /// Device Specification
@@ -781,19 +782,19 @@ impl DeviceArch {
 	pub fn get_native_arch() -> Option<&'static Self> {
 		use std::env::consts::ARCH;
 		match ARCH {
-			"x86_64" => Some(&Self::Amd64),
-			"aarch64" => Some(&Self::Arm64),
-			"loongarch64" => Some(&Self::LoongArch64),
+			"x86_64" => Some(&Self::amd64),
+			"aarch64" => Some(&Self::arm64),
+			"loongarch64" => Some(&Self::loongarch64),
 			"mips64" => {
 				if cfg!(target_arch = "mips64r6") {
-					Some(&Self::Mips64r6el)
+					Some(&Self::mips64r6el)
 				} else {
-					Some(&Self::Loongson3)
+					Some(&Self::loongson3)
 				}
 			}
-			"riscv64" => Some(&Self::Riscv64),
+			"riscv64" => Some(&Self::riscv64),
 			// TODO ppc64el needs work.
-			"powerpc64" => Some(&Self::Ppc64el),
+			"powerpc64" => Some(&Self::ppc64el),
 			_ => None,
 		}
 	}
@@ -808,13 +809,13 @@ impl DeviceArch {
 
 	pub fn get_qemu_binfmt_names(&self) -> &str {
 		match self {
-			Self::Amd64 => "qemu-x86_64",
-			Self::Arm64 => "qemu-aarch64",
-			Self::LoongArch64 => "qemu-loongarch64",
-			Self::Ppc64el => "qemu-ppc64le",
-			Self::Loongson3 => "qemu-mips64el",
-			Self::Riscv64 => "qemu-riscv64",
-			Self::Mips64r6el => "qemu-mips64el",
+			Self::amd64 => "qemu-x86_64",
+			Self::arm64 => "qemu-aarch64",
+			Self::loongarch64 => "qemu-loongarch64",
+			Self::ppc64el => "qemu-ppc64le",
+			Self::loongson3 => "qemu-mips64el",
+			Self::riscv64 => "qemu-riscv64",
+			Self::mips64r6el => "qemu-mips64el",
 		}
 	}
 }
