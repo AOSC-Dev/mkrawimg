@@ -1,5 +1,4 @@
 aosc-aaa
-zstd
 zlib
 gcc-runtime
 wpa-supplicant
@@ -33,7 +32,9 @@ tar
 gawk
 coreutils
 nano
-vim
 inetutils
 systemd
-binutils
+aosc-os-presets-base
+usbutils
+pciutils
+fastfetch
