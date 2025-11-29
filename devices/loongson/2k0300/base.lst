@@ -13,6 +13,7 @@ gawk
 gcc-runtime
 grep
 gzip
+htop
 inetutils
 iproute2
 iw
