@@ -1,7 +1,7 @@
 use core::time;
 use std::{
-	fs::{File, create_dir_all},
-	io::{BufReader, BufWriter, Write, copy},
+	fs::{create_dir_all, File},
+	io::{copy, BufReader, BufWriter, Write},
 	path::{Path, PathBuf},
 	thread,
 	time::{Duration, Instant},
@@ -20,7 +20,7 @@ use crate::{
 		sync_filesystem,
 	},
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 use log::{debug, info, warn};
 use loopdev::LoopControl;

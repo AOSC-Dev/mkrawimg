@@ -242,6 +242,7 @@ pub enum DeviceArch {
 ///
 /// Once specified, `mkrawimg` will perform the following operations:
 ///
+/// - Automatically install the `devena-firstboot-$TARGET` package, even if the package nane is not in the `bsp_packages` list
 /// - Automatically run `create-devena-initrd` command **after the post-installation stage**, before any of the bootloaders is applied
 ///
 /// <div class="warning">
