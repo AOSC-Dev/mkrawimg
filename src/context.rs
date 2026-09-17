@@ -63,8 +63,8 @@ impl ImageContext<'_> {
 		let content = content.as_ref();
 		info!(
 			"[{} {}] {}",
-			&self.device.id,
-			&self.variant.to_string().to_lowercase(),
+			self.device.id,
+			self.variant.to_string().to_lowercase(),
 			content
 		);
 	}
@@ -72,8 +72,8 @@ impl ImageContext<'_> {
 		let content = content.as_ref();
 		warn!(
 			"[{} {}] {}",
-			&self.device.id,
-			&self.variant.to_string().to_lowercase(),
+			self.device.id,
+			self.variant.to_string().to_lowercase(),
 			content
 		);
 	}
@@ -180,9 +180,9 @@ impl ImageContext<'_> {
 		loop {
 			let cur = stack.pop();
 			if let Some(s) = cur {
-				debug!("Syncing filesystem {} ...", &s);
+				debug!("Syncing filesystem {} ...", s);
 				sync_filesystem(&s)?;
-				debug!("Umounting {} ...", &s);
+				debug!("Umounting {} ...", s);
 				let p = Path::new(&s);
 				unmount(p, UnmountFlags::empty())?;
 				thread::sleep(time::Duration::from_millis(100));
@@ -201,7 +201,7 @@ impl ImageContext<'_> {
 	) -> Result<()> {
 		let rootdir = rootdir.as_ref();
 		let dst = rootdir.join("tmp");
-		debug!("Mounting tmpfs to {} ...", &dst.display());
+		debug!("Mounting tmpfs to {} ...", dst.display());
 		let mount = Mount::builder().fstype("tmpfs");
 		mount.mount("tmpfs", &dst)?;
 		stack.push(dst.to_string_lossy().to_string());
@@ -238,8 +238,8 @@ impl ImageContext<'_> {
 			self.info("Running post installation script ...");
 			debug!(
 				"Copying {} to {} ...",
-				&postinst_script_path.display(),
-				&rootdir.display()
+				postinst_script_path.display(),
+				rootdir.display()
 			);
 			let filename = postinst_script_path
 				.file_name()
@@ -268,27 +268,27 @@ impl ImageContext<'_> {
 		let num_cpus = num_cpus::get().clamp(1, 32) as u32;
 
 		let start: Instant;
-		let duration: Duration;
+		
 
 		match &self.compress {
 			Compression::None => {
 				self.info(format!(
 					"Not compressing the raw image as instructed, copying the raw image to {} ...",
-					&to.display()
+					to.display()
 				));
 			}
 			_ => {
 				self.info(format!(
 					"Compressing the raw image to {} using {:?} ...",
-					&to.display(),
-					&self.compress
+					to.display(),
+					self.compress
 				));
 				if self.compress != &Compression::Gzip {
 					self.info(format!("Using {} threads for compression", num_cpus));
 				}
 			}
 		}
-		match &self.compress {
+		let duration: Duration = match &self.compress {
 			Compression::Xz => {
 				let mut bufreader = BufReader::with_capacity(1048576, from_fd);
 				let mut xz_filter = xz2::stream::Filters::new();
@@ -305,7 +305,7 @@ impl ImageContext<'_> {
 				start = Instant::now();
 				copy(&mut bufreader, &mut writer)?;
 				writer.finish()?.flush()?;
-				duration = start.elapsed();
+				start.elapsed()
 			}
 			Compression::Zstd => {
 				// zstd::stream::copy_encode(from_fd, to_fd, 9)?;
@@ -315,7 +315,7 @@ impl ImageContext<'_> {
 				start = Instant::now();
 				copy(&mut bufreader, &mut writer)?;
 				writer.finish()?.flush()?;
-				duration = start.elapsed();
+				start.elapsed()
 			}
 			Compression::Gzip => {
 				self.warn(
@@ -327,7 +327,7 @@ impl ImageContext<'_> {
 				let mut bufwriter = BufWriter::with_capacity(1048576, to_fd);
 				start = Instant::now();
 				copy(&mut encoder, &mut bufwriter)?;
-				duration = start.elapsed();
+				start.elapsed()
 			}
 			Compression::None => {
 				// Using std::fs::copy.
@@ -339,7 +339,7 @@ impl ImageContext<'_> {
 				self.info("Done copying the raw image.");
 				return Ok(());
 			}
-		}
+		};
 		self.info(format!(
 			"Compression finished in {:.2} seconds.",
 			duration.as_secs_f64()
@@ -370,7 +370,7 @@ impl ImageContext<'_> {
 			eprint!("\x1b7\x1b[{};0f\x1b[42m\x1b[0K\x1b[2K", size.rows);
 			eprint!(
 				"\x1b[30m[{}/{}] {} ({:?}): {}",
-				num, len, &self.device.id, &self.variant, content
+				num, len, self.device.id, self.variant, content
 			);
 			eprint!("\x1b8");
 		};
@@ -383,14 +383,14 @@ impl ImageContext<'_> {
 		// Contains the raw image and the mount points
 		let workdir_base = self
 			.workdir
-			.join(format!("sketches/{}-{}", &self.device.id, &self.variant));
+			.join(format!("sketches/{}-{}", self.device.id, self.variant));
 		// The path containing the output
 		// Follows the directory hierarchy of AOSC OS releases
 		let outdir_base = self.outdir.join(format!(
 			"os-{}/{}/rawimg/{}",
-			&self.device.arch.to_string().to_lowercase(),
-			&self.variant.to_string().to_lowercase(),
-			&self.device.vendor
+			self.device.arch.to_string().to_lowercase(),
+			self.variant.to_string().to_lowercase(),
+			self.device.vendor
 		));
 		// The full path to the output file
 		let outfile_path = outdir_base.join(&self.filename);
@@ -417,22 +417,22 @@ impl ImageContext<'_> {
 		// Begin to produce the image
 		self.info(format!(
 			"Image:\n\t\"{}\" ({}) - {}",
-			&self.device.name, &self.device.id, &self.variant
+			self.device.name, self.device.id, self.variant
 		));
-		self.info(format!("Output file:\n\t{}", &self.filename));
+		self.info(format!("Output file:\n\t{}", self.filename));
 
 		self.info("Initializing image ...");
 		draw_progressbar("Initializing image");
 		// Create workdir_base and all its parents.
 		debug!(
 			"Creating directory '{}' and all of its parents ...",
-			&workdir_base.display()
+			workdir_base.display()
 		);
 		create_dir_all(&workdir_base)?;
 		// Create outdir_base and all its parents.
 		debug!(
 			"Creating directory '{}' and all of its parents ...",
-			&outdir_base.display()
+			outdir_base.display()
 		);
 		create_dir_all(&outdir_base)?;
 		create_dir_all(&mountdir_base)?;
@@ -456,8 +456,8 @@ impl ImageContext<'_> {
 			.context("Unable to get the path of the loop device")?;
 		debug!(
 			"Attacthed raw image file {} to {}",
-			&rawimg_path.display(),
-			&loop_dev_path.display()
+			rawimg_path.display(),
+			loop_dev_path.display()
 		);
 
 		self.info("Creating partitions ...");
@@ -490,7 +490,7 @@ impl ImageContext<'_> {
 		let binds = binds.as_slice();
 
 		// The path to the block device which contains the root filesystem.
-		let rootpart_dev = format!("{}p{}", &loop_dev_path.to_string_lossy(), root_dev_num);
+		let rootpart_dev = format!("{}p{}", loop_dev_path.to_string_lossy(), root_dev_num);
 		self.info("Mounting partitions ...");
 		self.mount_partitions(&loop_dev_path, &mountdir_base, &mut mountpoint_stack)?;
 		let rootfs_mount = mountdir_base

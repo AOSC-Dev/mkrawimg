@@ -197,11 +197,10 @@ fn main() -> Result<()> {
 	// Parse the command line
 	let cmdline = Cmdline::try_parse()?;
 	match &cmdline.action {
-		Action::Build { .. } | Action::BuildAll { .. } => {
-			if unsafe { utils::geteuid() } != 0 {
+		Action::Build { .. } | Action::BuildAll { .. }
+			if unsafe { utils::geteuid() } != 0 => {
 				bail!("Please run me as root!");
 			}
-		}
 		_ => (),
 	}
 	let mut logger = colog::basic_builder();
@@ -300,7 +299,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 		} else {
 			info!(
 				"Device ID or alias '{}' provided. Assembling the full registry ...",
-				&device_str
+				device_str
 			);
 			DeviceRegistry::scan(registry_dir)?
 		}
@@ -340,7 +339,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					// Since we need to try to get a device with that name first.
 					info!(
 						"Going to build images for device '{}'.",
-						&device_str.unwrap()
+						device_str.unwrap()
 					);
 					v
 				}
@@ -372,22 +371,22 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					// aosc-os_desktop_rawimg_raspberrypi_rpi-5b_20241108{.1}.img.xz
 					let base_dist = Path::new(&cmdline.workdir).join(format!(
 						"bootstrap/{}-{}",
-						&variant_str,
-						&device.arch.to_string().to_lowercase()
+						variant_str,
+						device.arch.to_string().to_lowercase()
 					));
 					let filename = format!(
 						"aosc-os_{0}_rawimg_{1}_{2}_{3}{4}_{5}.img{6}",
-						&variant.to_string().to_lowercase(),
-						&device.vendor.clone(),
-						&device.id.clone(),
-						&date_str,
+						variant.to_string().to_lowercase(),
+						device.vendor.clone(),
+						device.id.clone(),
+						date_str,
 						match revision {
 							Some(x) => {
 								format!(".{}", x)
 							}
 							_ => "".to_string(),
 						},
-						&device.arch.to_string().to_ascii_lowercase(),
+						device.arch.to_string().to_ascii_lowercase(),
 						compress.get_extension()
 					);
 					queue.push(ImageContext {
@@ -418,7 +417,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					let arch = device.arch;
 					let bootstrap_path = Path::new(&cmdline.workdir).join(format!(
 						"bootstrap/{}-{}",
-						&variant_str,
+						variant_str,
 						arch.to_string().to_lowercase()
 					));
 					let dir = device
@@ -428,7 +427,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					let sources_list_path = dir.join("sources.list");
 					let sources_list: Option<PathBuf> =
 						sources_list_path.exists().then_some(sources_list_path);
-					let recipe_list_path = dir.join(&format!("{}.lst", variant_str));
+					let recipe_list_path = dir.join(format!("{}.lst", variant_str));
 					let recipe_list: Option<PathBuf> =
 						recipe_list_path.exists().then_some(recipe_list_path);
 					if !bootstrap_path.is_dir() || !(bootstrap_path.join("etc/os-release")).exists()
@@ -469,7 +468,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					Err(e) => {
 						warn!(
 							"Unable to remove the directory {}: {}\nYou have to remove them manually.",
-							&sketch_dir.display(),
+							sketch_dir.display(),
 							e
 						);
 					}
@@ -483,7 +482,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					Err(e) => {
 						warn!(
 							"Unable to remove the directory {}: {}\nYou have to remove them manually.",
-							&bootstrap_dir.display(),
+							bootstrap_dir.display(),
 							e
 						);
 					}
@@ -496,7 +495,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 					Err(e) => {
 						warn!(
 							"Unable to remove the working directory {}: {}\nYou have to remove them manually.",
-							&cmdline.workdir.display(),
+							cmdline.workdir.display(),
 							e
 						);
 					}
@@ -508,14 +507,14 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				let uid = uid
 					.map(|x| {
 						x.parse::<u32>().with_context(|| {
-							format!("Failed to parse $SUDO_UID '{}' into integer", &x)
+							format!("Failed to parse $SUDO_UID '{}' into integer", x)
 						})
 					})
 					.transpose()?;
 				let gid = gid
 					.map(|x| {
 						x.parse::<u32>().with_context(|| {
-							format!("Failed to parse $SUDO_GID '{}' into integer", &x)
+							format!("Failed to parse $SUDO_GID '{}' into integer", x)
 						})
 					})
 					.transpose()?;
@@ -524,7 +523,7 @@ fn try_main(cmdline: Cmdline) -> Result<()> {
 				);
 				return_ownership_recursive(&cmdline.outdir, uid, gid)?;
 			}
-			info!("Output directory: {}", &cmdline.outdir.display());
+			info!("Output directory: {}", cmdline.outdir.display());
 			info!("Program finished successfully. Exiting.");
 		}
 		cli::Action::Check { .. } => {

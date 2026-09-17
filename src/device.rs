@@ -565,10 +565,10 @@ impl DeviceSpec {
 			)
 		};
 		let content = fs::read_to_string(file)
-			.context(format!("Unable to read file '{}'", &file.to_string_lossy()))?;
+			.context(format!("Unable to read file '{}'", file.to_string_lossy()))?;
 		let mut device: DeviceSpec = toml::from_str(&content).context(format!(
 			"Unable to treat '{}' as an entry of the registry",
-			&file.to_string_lossy()
+			file.to_string_lossy()
 		))?;
 		device.file_path = file.canonicalize()?;
 		Ok(device)
@@ -642,14 +642,13 @@ impl DeviceSpec {
 		let mut root_part = None;
 		let mut last_partition_num = 0;
 		for partition in &self.partitions {
-			if let Some(start) = partition.start_sector {
-				if self.partition_map == PartitionMapType::GPT && start <= 33 {
+			if let Some(start) = partition.start_sector
+				&& self.partition_map == PartitionMapType::GPT && start <= 33 {
 					bail!(
 						"Starting sector of partition {} overlaps the partition table itself.",
 						partition.num
 					);
 				}
-			}
 			if partition.part_type == PartitionType::Swap {
 				bail!("Swap partitions are not allowed on raw images.");
 			}
@@ -699,7 +698,7 @@ impl DeviceSpec {
 						if !script_path.is_file() {
 							bail!(
 								"Script '{}' not found within the same directory as the device.toml",
-								&name
+								name
 							);
 						}
 					}
@@ -743,12 +742,12 @@ impl DeviceSpec {
 			let root_param = if self.initrdless {
 				format!(
 					"root=PARTUUID={} ",
-					&pm_data.data.get(&root_part.num).as_ref().unwrap().part_uuid
+					pm_data.data.get(&root_part.num).as_ref().unwrap().part_uuid
 				)
 			} else {
 				format!(
 					"root=UUID={} ",
-					&pm_data
+					pm_data
 						.data
 						.get(&root_part.num)
 						.as_ref()
@@ -799,11 +798,10 @@ impl DeviceArch {
 		}
 	}
 	pub fn is_native(&self) -> bool {
-		if let Some(a) = Self::get_native_arch() {
-			if a == self {
+		if let Some(a) = Self::get_native_arch()
+			&& a == self {
 				return true;
 			}
-		}
 		false
 	}
 
@@ -856,7 +854,7 @@ impl ImageContext<'_> {
 			img.display()
 		));
 		let size_in_lba = new_table.header.last_usable_lba;
-		self.info(format!("UUID: {}", &rand_uuid));
+		self.info(format!("UUID: {}", rand_uuid));
 		self.info(format!("Total LBA: {}", size_in_lba));
 		let num_partitions = self.device.num_partitions;
 		for partition in &self.device.partitions {
@@ -866,7 +864,7 @@ impl ImageContext<'_> {
 			let rand_part_uuid = Uuid::new_v4();
 			let unique_partition_guid = rand_part_uuid.to_bytes_le();
 			let free_blocks = new_table.find_free_sectors();
-			debug!("Free blocks remaining: {:#?}", &free_blocks);
+			debug!("Free blocks remaining: {:#?}", free_blocks);
 			let last_free = free_blocks
 				.last()
 				.context("No more free space available for new partitions")?;
@@ -891,7 +889,7 @@ impl ImageContext<'_> {
 			} else {
 				new_table.find_first_place(size).context(format!(
 					"No suitable space found for partition:\n{:?}.",
-					&partition
+					partition
 				))?
 			};
 			let ending_lba = starting_lba + size - 1;
@@ -965,7 +963,7 @@ impl ImageContext<'_> {
 				bail!("Extended and logical partitions are not supported.");
 			}
 			let free_blocks = new_table.find_free_sectors();
-			debug!("Free blocks remaining: {:#?}", &free_blocks);
+			debug!("Free blocks remaining: {:#?}", free_blocks);
 			let last_free = free_blocks
 				.last()
 				.context("No more free space available for new partitions")?;
@@ -993,7 +991,7 @@ impl ImageContext<'_> {
 			} else {
 				new_table.find_first_place(sectors).context(format!(
 					"No suitable free space found for partition: {:?}",
-					&partition
+					partition
 				))?
 			};
 			let boot = if partition.usage == PartitionUsage::Boot {
@@ -1002,7 +1000,7 @@ impl ImageContext<'_> {
 				mbrman::BOOT_INACTIVE
 			};
 			let sys = partition.part_type.to_byte()?;
-			self.info(format!("Creating an {:?} partition:", &partition.part_type));
+			self.info(format!("Creating an {:?} partition:", partition.part_type));
 			self.info(format!(
 				"Size in LBA: {}, Start = {}, End = {}",
 				sectors,
@@ -1022,7 +1020,7 @@ impl ImageContext<'_> {
 				partition.num,
 				PartitionData {
 					num: partition.num,
-					part_uuid: format!("{}-{:02x}", &disk_signature_str, idx),
+					part_uuid: format!("{}-{:02x}", disk_signature_str, idx),
 					fs_uuid: None,
 				},
 			);
@@ -1055,13 +1053,13 @@ DISKUUID='{6}'
 KERNEL_CMDLINE='{7}'
 "#,
 			self.device.id,
-			&self.device.of_compatible.clone().unwrap_or("".to_string()),
+			self.device.of_compatible.clone().unwrap_or("".to_string()),
 			loopdev.as_ref().to_string_lossy(),
 			self.device.num_partitions,
 			rootpart.as_ref().to_string_lossy(),
-			&self.device.partition_map.to_string().to_lowercase(),
-			&pm_data.uuid,
-			&self.device.gen_kernel_cmdline(pm_data)?
+			self.device.partition_map.to_string().to_lowercase(),
+			pm_data.uuid,
+			self.device.gen_kernel_cmdline(pm_data)?
 		);
 		for part in &self.device.partitions {
 			let part_data = pm_data.data.get(&part.num).context(format!(
@@ -1083,7 +1081,7 @@ KERNEL_CMDLINE='{7}'
 			}
 			// We might not have a filesystem UUID under some circumstances
 			if let Some(fsuuid) = &part_data.fs_uuid {
-				script += &format!("PART{0}_FSUUID='{1}'\n", part_data.num, &fsuuid);
+				script += &format!("PART{0}_FSUUID='{1}'\n", part_data.num, fsuuid);
 				if part.usage == PartitionUsage::Rootfs {
 					script += &format!("ROOT_FSUUID=\"$PART{0}_FSUUID\"\n", part.num);
 				} else if part.usage == PartitionUsage::Boot {
@@ -1094,7 +1092,7 @@ KERNEL_CMDLINE='{7}'
 				}
 			}
 		}
-		debug!("Script content: \n{}", &script);
+		debug!("Script content: \n{}", script);
 		let path = container.as_ref().join("tmp/spec.sh");
 		let mut fd = File::options()
 			.create(true)
@@ -1121,11 +1119,11 @@ KERNEL_CMDLINE='{7}'
 					partition.num
 				))?;
 				let src = if self.device.initrdless {
-					format!("PARTUUID=\"{0}\"", &part_data.part_uuid)
+					format!("PARTUUID=\"{0}\"", part_data.part_uuid)
 				} else {
 					format!(
 						"UUID=\"{0}\"",
-						&part_data
+						part_data
 							.fs_uuid
 							.as_ref()
 							.context("Partition with a mountpoint must have a valid filesystem")?
@@ -1145,10 +1143,10 @@ KERNEL_CMDLINE='{7}'
 				};
 				let entry = format!(
 					"{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n",
-					&src,
-					&mountpoint,
-					&partition.filesystem.get_os_fstype()?,
-					&options,
+					src,
+					mountpoint,
+					partition.filesystem.get_os_fstype()?,
+					options,
 					0,
 					fsck_passno
 				);
@@ -1174,9 +1172,9 @@ KERNEL_CMDLINE='{7}'
 		let rand_id: u32 = rand::random();
 		let hostname = format!(
 			"{:?}-{}-{:08x}",
-			&self.device.distro, &self.device.id, rand_id
+			self.device.distro, self.device.id, rand_id
 		);
-		self.info(format!("Hostname: {}", &hostname));
+		self.info(format!("Hostname: {}", hostname));
 		let hostname_path = container.as_ref().join("etc/hostname");
 		let mut hostname_fd = File::options()
 			.truncate(true)

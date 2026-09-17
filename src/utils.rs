@@ -41,12 +41,12 @@ pub fn get_sparse_file<P: AsRef<Path>>(path: P, size: u64) -> Result<File> {
 	}
 	debug!(
 		"Creating sparse file at '{}' with size {} bytes ...",
-		&img_path.display(),
+		img_path.display(),
 		size
 	);
 	let mut img_file = File::create_new(img_path).context(format!(
 		"Error creating raw image file '{}'",
-		&img_path.display()
+		img_path.display()
 	))?;
 	// Seek to the desired size
 	img_file.seek(std::io::SeekFrom::Start(size - 1))?;
@@ -222,11 +222,11 @@ pub fn sync_filesystem(path: &dyn AsRef<Path>) -> Result<()> {
 		let errno = errno::errno();
 		return Err(anyhow!(
 			"Failed to open path {}: {}",
-			&tgt_path.display(),
+			tgt_path.display(),
 			errno
 		));
 	}
-	debug!("open(\"{}\") returned fd {}", &tgt_path.display(), fd);
+	debug!("open(\"{}\") returned fd {}", tgt_path.display(), fd);
 	let result = unsafe { syncfs(fd) };
 	debug!("syncfs({}) returned {}", fd, result);
 	if result != 0 {
@@ -405,7 +405,7 @@ pub fn run_script_with_chroot<P: AsRef<Path>>(
 	// We are using 'source' to let the script being run to use the information we provided.
 	let full_script = format!(
 		"source /tmp/spec.sh ; source {}",
-		&script.as_ref().to_string_lossy()
+		script.as_ref().to_string_lossy()
 	);
 	cmd.args(["-q", "-D", &root.as_ref().to_string_lossy()]);
 	for bind in binds {
@@ -459,7 +459,7 @@ pub fn get_fsuuid(fspath: &dyn AsRef<Path>) -> Result<String> {
 			Ok(uuid.to_owned())
 		}
 		_ => {
-			bail!("Can not get necessary information of {}", &fspath.display());
+			bail!("Can not get necessary information of {}", fspath.display());
 		}
 	}
 }

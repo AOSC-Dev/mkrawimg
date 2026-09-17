@@ -222,7 +222,7 @@ impl ImageContext<'_> {
 					BootloaderSpec::run_script(rootfs, device_spec_dir.join(name), binds)?;
 				}
 				BootloaderSpec::FlashPartition { path, partition } => {
-					let partition = format!("{}p{}", &loopdev.to_string_lossy(), partition);
+					let partition = format!("{}p{}", loopdev.to_string_lossy(), partition);
 					BootloaderSpec::apply_to_partition(
 						path.as_path(),
 						rootfs,

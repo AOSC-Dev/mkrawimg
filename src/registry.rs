@@ -69,7 +69,7 @@ impl DeviceRegistry {
 
 	pub fn get(self, str: &String) -> Result<DeviceSpec> {
 		if !self.registry.contains_key(str) {
-			bail!("Can't find a device with provided ID or alias '{}'", &str);
+			bail!("Can't find a device with provided ID or alias '{}'", str);
 		}
 		let idx_device = self.registry.get(str).unwrap();
 		let device: &DeviceSpec = self
@@ -96,7 +96,7 @@ impl DeviceRegistry {
 				continue;
 			}
 			let dev: DeviceSpec = DeviceSpec::from_path(p)?;
-			debug!("Parsed device \"{}\"\n{:#?}", &dev.name, &dev);
+			debug!("Parsed device \"{}\"\n{:#?}", dev.name, dev);
 			let name = dev.name.clone();
 			let id = dev.id.clone();
 			let aliases = dev.aliases.clone();
@@ -113,7 +113,7 @@ impl DeviceRegistry {
 					occupant.name,
 					occupant.id,
 					p.display(),
-					&occupant.file_path.as_path().display()
+					occupant.file_path.as_path().display()
 				))
 				.context("Error occurred while assembling the device registry");
 			}
@@ -132,11 +132,11 @@ impl DeviceRegistry {
 						Please view the following files to decide what to do:\n- {}- \n{}",
 							alias,
 							name,
-							&id,
+							id,
 							occupant.name,
 							occupant.id,
 							p.display(),
-							&occupant.file_path.as_path().display()
+							occupant.file_path.as_path().display()
 						));
 					}
 					hashmap.insert(alias.clone(), devices.len() - 1);
@@ -145,8 +145,8 @@ impl DeviceRegistry {
 		}
 		info!(
 			"Scan complete. Registry contains {} names for {} devices.",
-			&hashmap.len(),
-			&devices.len()
+			hashmap.len(),
+			devices.len()
 		);
 		let registry = DeviceRegistry {
 			devices,
@@ -187,8 +187,8 @@ impl DeviceRegistry {
 		debug!(
 			"Adding device {} ({}) from {} ...",
 			name,
-			&id,
-			&devicetoml.file_name().unwrap().to_string_lossy()
+			id,
+			devicetoml.file_name().unwrap().to_string_lossy()
 		);
 		registry.insert(id, 0);
 		Ok(DeviceRegistry {
@@ -202,25 +202,25 @@ impl DeviceRegistry {
 		for d in self.devices {
 			let result = d.check().context(format!(
 				"Sanity check failed for device '{}' at {}:",
-				&d.id,
-				&d.file_path.display()
+				d.id,
+				d.file_path.display()
 			));
 			match result {
 				Err(e) => {
 					error!(
 						"FAIL: {} ({})\n\t{}",
-						&d.id,
-						&d.name,
-						&d.file_path.display()
+						d.id,
+						d.name,
+						d.file_path.display()
 					);
 					errs.push(e);
 				}
 				Ok(_) => {
 					info!(
 						"PASS: {} ({})\n\t{}",
-						&d.id,
-						&d.name,
-						&d.file_path.display()
+						d.id,
+						d.name,
+						d.file_path.display()
 					)
 				}
 			}
@@ -271,9 +271,9 @@ impl DeviceRegistry {
 				format_args!("{}", idx),
 				format_args!("{:<32}", &device.id),
 				format_args!("{:<12}", &device.arch.to_string().to_lowercase()),
-				&device.vendor,
+				device.vendor,
 				" ".repeat(idx_width),
-				&device.name,
+				device.name,
 				match &device.aliases {
 					Some(aliases) => {
 						if aliases.is_empty() {
@@ -298,9 +298,9 @@ impl DeviceRegistry {
 		for device in devices {
 			println!(
 				"{:<31}\t{:<15}\t{}",
-				&device.id,
-				&device.arch.to_string().to_lowercase(),
-				&device.name
+				device.id,
+				device.arch.to_string().to_lowercase(),
+				device.name
 			);
 		}
 	}
